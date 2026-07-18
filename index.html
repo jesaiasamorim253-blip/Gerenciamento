@@ -1,0 +1,2587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ledger — Gerenciamento de Operações</title>
+
+<!-- PWA: permite instalar como app na tela inicial -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0F1419">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1419;
+    --surface:#161C26;
+    --surface-2:#1D2430;
+    --border:#262E3B;
+    --text:#E8EAED;
+    --muted:#8B95A1;
+    --gold:#D4A73D;
+    --gold-dim:#8A722C;
+    --gold-rgb:212,167,61;
+    --win:#3DD68C;
+    --loss:#E5484D;
+    --win-bg:rgba(61,214,140,0.1);
+    --loss-bg:rgba(229,72,77,0.1);
+  }
+  body.light{
+    --bg:#F6F4EF;
+    --surface:#FFFFFF;
+    --surface-2:#F0EDE4;
+    --border:#DEDACD;
+    --text:#20201C;
+    --muted:#726E62;
+    --gold:#B7893A;
+    --gold-dim:#8A722C;
+    --gold-rgb:183,137,58;
+    --win:#1E9E63;
+    --loss:#D33036;
+    --win-bg:rgba(30,158,99,0.1);
+    --loss-bg:rgba(211,48,54,0.1);
+  }
+  body{transition:background-color .2s, color .2s;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1100px;margin:0 auto;padding:28px 20px 80px;}
+
+  /* ===== Header ===== */
+  header.top{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    margin-bottom:28px;border-bottom:1px solid var(--border);padding-bottom:20px;
+    flex-wrap:wrap;gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:38px;height:38px;border-radius:8px;
+    background:linear-gradient(135deg,var(--gold) 0%, var(--gold-dim) 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'IBM Plex Mono',monospace;font-weight:600;color:#0F1419;font-size:16px;
+  }
+  .brand h1{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;letter-spacing:-0.01em;}
+  .brand p{color:var(--muted);font-size:12.5px;margin-top:2px;}
+  .clock{font-family:'IBM Plex Mono',monospace;color:var(--muted);font-size:12.5px;text-align:right;}
+
+  .menu-dots{
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    color:var(--text);font-size:18px;line-height:1;padding:8px 12px;cursor:pointer;
+    transition:border-color .15s;
+  }
+  .menu-dots:hover{border-color:var(--gold-dim);}
+
+  .hamburger{
+    background:var(--surface);border:1px solid var(--border);border-radius:9px;
+    width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:5px;cursor:pointer;transition:border-color .15s;flex-shrink:0;
+  }
+  .hamburger:hover{border-color:var(--gold-dim);}
+  .hamburger span{width:20px;height:2.5px;background:var(--text);border-radius:2px;}
+
+  /* ===== Gaveta lateral (estilo Gmail) ===== */
+  .drawer-backdrop{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:40;
+  }
+  .drawer-backdrop.show{display:block;}
+  .drawer{
+    position:fixed;top:0;left:0;height:100%;width:280px;max-width:82vw;
+    background:var(--surface);z-index:41;transform:translateX(-100%);
+    transition:transform .28s cubic-bezier(.2,.8,.3,1);
+    display:flex;flex-direction:column;padding:18px 0 20px;
+    box-shadow:6px 0 30px rgba(0,0,0,0.35);overflow-y:auto;
+  }
+  .drawer.show{transform:translateX(0);}
+  .drawer-header{padding:4px 22px 18px;border-bottom:1px solid var(--border);margin-bottom:12px;}
+  .drawer-header h2{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600;color:var(--text);}
+  .drawer-header p{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .drawer-item{
+    display:flex;align-items:center;gap:16px;
+    background:none;border:none;text-align:left;width:calc(100% - 12px);
+    padding:13px 22px;margin:1px 12px 1px 0;border-radius:0 24px 24px 0;
+    color:var(--muted);font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;
+    cursor:pointer;transition:background .15s,color .15s;
+  }
+  .drawer-item .ic{font-size:17px;width:20px;text-align:center;}
+  .drawer-item:hover{background:var(--surface-2);color:var(--text);}
+  .drawer-item.active{background:rgba(var(--gold-rgb),0.14);color:var(--gold);}
+  .drawer-divider{height:1px;background:var(--border);margin:12px 20px;}
+  .drawer-section-title{padding:0 22px 6px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:'Space Grotesk',sans-serif;font-weight:600;}
+  .drawer-storage-info{padding:10px 22px 0;font-size:11px;color:var(--muted);line-height:1.5;}
+
+  /* ===== Tabs ===== */
+  nav.tabs{
+    display:flex;gap:4px;margin-bottom:26px;border-bottom:1px solid var(--border);
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    background:none;border:none;color:var(--muted);
+    font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;
+    padding:11px 16px;cursor:pointer;position:relative;white-space:nowrap;
+    transition:color .15s;
+  }
+  nav.tabs button:hover{color:var(--text);}
+  nav.tabs button.active{color:var(--gold);}
+  nav.tabs button.active::after{
+    content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--gold);
+  }
+
+  .view{display:none;animation:fade .2s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ===== Cards / grid ===== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:22px;}
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;
+  }
+  .card .label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;}
+  .card .value{font-family:'IBM Plex Mono',monospace;font-size:23px;font-weight:600;}
+  .card .value.win{color:var(--win);}
+  .card .value.loss{color:var(--loss);}
+  .card .value.gold{color:var(--gold);}
+  .card .sub{font-size:11.5px;color:var(--muted);margin-top:4px;}
+
+  .panel{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:20px;margin-bottom:20px;
+  }
+  .panel h2{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin-bottom:16px;}
+  .panel h2 .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);font-weight:400;margin-left:8px;}
+
+  /* ===== Forms ===== */
+  .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px;}
+  label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;}
+  input,select{
+    width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;
+    color:var(--text);padding:9px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;
+    outline:none;transition:border-color .15s;
+  }
+  input:focus,select:focus{border-color:var(--gold-dim);}
+  select{font-family:'Inter',sans-serif;}
+  .btn{
+    background:var(--gold);color:#181205;border:none;border-radius:7px;
+    padding:10px 18px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13.5px;
+    cursor:pointer;transition:filter .15s;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .g-metodo-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(var(--gold-rgb),0.08);}
+  .badge-padrao{display:none;margin-left:7px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--gold);color:#181205;padding:2px 6px;border-radius:99px;vertical-align:middle;}
+  .badge-padrao.show{display:inline-block;}
+  .btn.win{background:var(--win);color:#0a1f14;}
+  .btn.loss{background:var(--loss);color:#280708;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+  /* ===== Tables ===== */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{
+    text-align:left;color:var(--muted);font-weight:500;font-size:11px;
+    text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--border);
+  }
+  td{padding:10px 10px;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;}
+  tr:last-child td{border-bottom:none;}
+  .pill{
+    display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .pill.win{background:var(--win-bg);color:var(--win);}
+  .pill.loss{background:var(--loss-bg);color:var(--loss);}
+  .pill.dep{background:rgba(var(--gold-rgb),0.12);color:var(--gold);}
+  .pill.saq{background:rgba(139,149,161,0.12);color:var(--muted);}
+  .del{
+    background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px 6px;
+  }
+  .del:hover{color:var(--loss);}
+  button.del[title="Editar"]:hover{color:var(--gold);}
+  .empty{color:var(--muted);font-size:13px;padding:20px 4px;text-align:center;}
+
+  /* ===== Chart ===== */
+  #chart{width:100%;height:150px;display:block;}
+
+  /* ===== Soros calculator ===== */
+  .cycles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px;}
+  .cycle-card{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:14px 16px;
+    position:relative;overflow:hidden;
+  }
+  .cycle-card .num{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;color:var(--gold);
+    text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;
+  }
+  .cycle-card .row{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;color:var(--muted);}
+  .cycle-card .row b{color:var(--text);font-family:'IBM Plex Mono',monospace;}
+  .cycle-card .net{
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .cycle-card .net .value{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;}
+  .resumo-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+  /* ===== Gráficos de pizza ===== */
+  .pizza-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .pizza-col{display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .pizza-titulo{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:12.5px;color:var(--gold);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+  .pizza-col canvas{max-width:100%;}
+  .pizza-legenda{width:100%;margin-top:12px;text-align:left;}
+  .pizza-legenda-item{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);padding:3px 0;}
+  .pizza-legenda-item .dotp{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .pizza-legenda-item b{color:var(--text);font-family:'IBM Plex Mono',monospace;margin-left:auto;padding-left:8px;}
+  @media(max-width:520px){ .pizza-grid{grid-template-columns:1fr;} }
+  .meta-resumo{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:var(--surface-2);border-radius:9px;}
+  .meta-resumo div{font-size:12px;color:var(--muted);}
+  .meta-resumo b{display:block;font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--text);margin-top:2px;}
+  .meta-dia-row{
+    display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);
+  }
+  .meta-dia-row:last-child{border-bottom:none;}
+  .meta-dia-row.pendente{opacity:0.75;}
+  .meta-dia-num{
+    width:30px;height:30px;border-radius:50%;background:var(--surface-2);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;
+    font-size:12px;font-weight:600;
+  }
+  .meta-dia-row.ok .meta-dia-num{background:var(--win-bg);color:var(--win);}
+  .meta-dia-row.fail .meta-dia-num{background:var(--loss-bg);color:var(--loss);}
+  .meta-dia-info{flex:1;min-width:0;}
+  .meta-dia-info .valores{font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+  .meta-dia-info .valores b{color:var(--text);}
+  .meta-dia-acoes{display:flex;gap:6px;flex-shrink:0;}
+  .meta-dia-acoes button{
+    width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);
+    cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;
+  }
+  .meta-dia-acoes button.marcado{border-color:var(--gold);}
+  .revisao-emocao{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2);border-radius:9px;margin-bottom:12px;}
+  .revisao-emocao .emoji{font-size:22px;}
+  .revisao-nota-item{padding:8px 0;border-bottom:1px dashed var(--border);font-size:12.5px;}
+  .revisao-nota-item:last-child{border-bottom:none;}
+  .revisao-nota-item .meta{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;margin-right:6px;}
+  .revisao-status-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .revisao-status-pill{font-size:11.5px;padding:5px 10px;border-radius:99px;font-family:'Space Grotesk',sans-serif;font-weight:600;}
+  .resumo-titulo{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:12.5px;color:var(--gold);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+  .resumo-linha{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--border);color:var(--muted);}
+  .resumo-linha:last-child{border-bottom:none;}
+  .resumo-linha b{color:var(--text);font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  @media(max-width:520px){ .resumo-grid{grid-template-columns:1fr;} }
+
+  /* ===== Calendário ===== */
+  .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .cal-head .month{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;}
+  .cal-nav{display:flex;gap:6px;}
+  .cal-nav button{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);
+    width:28px;height:28px;cursor:pointer;font-size:13px;
+  }
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+  .cal-dow{text-align:center;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-bottom:4px;}
+  .cal-day{
+    aspect-ratio:1;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12px;position:relative;
+    transition:border-color .15s;
+  }
+  .cal-day:hover{border-color:var(--gold-dim);}
+  .cal-day.empty{background:transparent;border:none;cursor:default;}
+  .cal-day.meta{background:var(--win-bg);border-color:var(--win);color:var(--win);}
+  .cal-day.stop{background:var(--loss-bg);border-color:var(--loss);color:var(--loss);}
+  .cal-day.empate{background:rgba(var(--gold-rgb),0.12);border-color:var(--gold);color:var(--gold);}
+  .cal-day.selected{outline:2px solid var(--gold);}
+  .cal-day .emo{font-size:13px;position:absolute;top:3px;right:4px;}
+  .cal-form{
+    margin-top:18px;padding-top:16px;border-top:1px solid var(--border);
+    display:none;
+  }
+  .cal-form.show{display:block;}
+  .emo-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;margin-bottom:12px;}
+  .emo-btn{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+    padding:8px 10px;cursor:pointer;font-size:18px;line-height:1;transition:border-color .15s;
+  }
+  .emo-btn.active{border-color:var(--gold);background:rgba(var(--gold-rgb),0.1);}
+  .cal-legend{display:flex;gap:16px;margin-top:14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap;}
+  .cal-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .dot.meta{background:var(--win);}
+  .dot.stop{background:var(--loss);}
+  .dot.empate{background:var(--gold);}
+
+  /* ===== Chart tooltip ===== */
+  .chart-wrap{position:relative;}
+  .chart-tip{
+    position:absolute;pointer-events:none;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:7px;padding:6px 9px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    display:none;white-space:nowrap;transform:translate(-50%,-115%);z-index:5;
+  }
+  .chart-tip .d{color:var(--muted);font-size:10.5px;}
+
+  /* ===== Print da operação ===== */
+  #o-imagem-input{
+    width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;
+    color:var(--muted);padding:8px 10px;font-size:12px;
+  }
+  .img-preview-wrap{position:relative;display:inline-block;margin-top:10px;}
+  .img-preview-wrap img{width:100px;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;}
+  .img-preview-remove{
+    position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;
+    background:var(--loss);color:#fff;border:2px solid var(--surface);cursor:pointer;
+    font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;
+  }
+  .thumb-tabela{
+    width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid var(--border);
+    cursor:pointer;vertical-align:middle;
+  }
+  .lightbox{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:60;
+    align-items:center;justify-content:center;padding:24px;cursor:zoom-out;
+  }
+  .lightbox.show{display:flex;}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:10px;box-shadow:0 20px 50px rgba(0,0,0,0.5);}
+
+  .note{
+    font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6;
+    border-left:2px solid var(--gold-dim);padding-left:12px;
+  }
+  .alert-banner{
+    display:none;background:var(--loss-bg);border:1px solid var(--loss);border-radius:9px;
+    padding:12px 16px;margin-bottom:18px;align-items:center;gap:10px;
+  }
+  .alert-banner.show{display:flex;}
+  .alert-banner.meta{background:var(--win-bg);border-color:var(--win);}
+  .alert-banner.meta .txt b{color:var(--win);}
+  .alert-banner.info{background:rgba(var(--gold-rgb),0.1);border-color:var(--gold);}
+  .alert-banner{margin-bottom:10px;}
+  .alert-banner .icon{font-size:18px;}
+  .alert-banner .txt{font-size:13px;color:var(--text);}
+  .alert-banner .txt b{color:var(--loss);}
+  .limit-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .limit-row > div{flex:0 0 160px;}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;margin-top:30px;}
+
+  @media(max-width:560px){
+    .card .value{font-size:19px;}
+    table{font-size:11.5px;}
+    th,td{padding:8px 6px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <button class="hamburger" id="menu-toggle" aria-label="Abrir menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="brand-mark">$</div>
+      <div>
+        <h1>Ledger</h1>
+        <p>Gerenciamento de operações — opções binárias</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="clock" id="clock"></div>
+      <button class="menu-dots" id="theme-toggle" aria-label="Alternar tema" title="Alternar tema claro/escuro">🌙</button>
+    </div>
+  </header>
+
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="brand-mark" style="margin-bottom:10px;">$</div>
+      <h2>Ledger</h2>
+      <p>Gerenciamento de operações</p>
+    </div>
+    <button class="drawer-item active" data-view="dashboard"><span class="ic">🏠</span> Dashboard</button>
+    <button class="drawer-item" data-view="caixa"><span class="ic">💰</span> Depósitos &amp; Saques</button>
+    <button class="drawer-item" data-view="operacoes"><span class="ic">📋</span> Registro de Operações</button>
+    <button class="drawer-item" data-view="calendario"><span class="ic">📅</span> Calendário</button>
+    <button class="drawer-item" data-view="gerenciamento"><span class="ic">🧮</span> Gerenciamento</button>
+    <div class="drawer-divider"></div>
+    <div class="drawer-section-title">Dados</div>
+    <button class="drawer-item" onclick="exportarBackup()"><span class="ic">⬇️</span> Exportar backup</button>
+    <button class="drawer-item" onclick="importarBackup()"><span class="ic">⬆️</span> Importar backup</button>
+    <input type="file" id="backup-file-input" accept="application/json,.json" style="display:none;" onchange="processarArquivoBackup(this)">
+    <div class="drawer-storage-info" id="drawer-storage-info"></div>
+  </aside>
+
+  <nav class="tabs">
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="caixa">Depósitos &amp; Saques</button>
+    <button data-view="operacoes">Registro de Operações</button>
+    <button data-view="calendario">Calendário</button>
+    <button data-view="gerenciamento">Gerenciamento (Soros)</button>
+  </nav>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section class="view active" id="view-dashboard">
+    <div class="alert-banner" id="alert-storage-fail" style="background:var(--loss-bg);border-color:var(--loss);">
+      <span class="icon">🚫</span>
+      <span class="txt">
+        Este navegador não está conseguindo salvar dados de forma permanente (comum quando o arquivo é
+        aberto de forma temporária). <b>Exporte um backup agora</b> pra não perder o que você registrar,
+        e evite atualizar/fechar a página sem exportar.
+      </span>
+      <button class="btn" style="padding:7px 12px;font-size:12px;flex-shrink:0;" onclick="exportarBackup()">Exportar agora</button>
+    </div>
+    <div class="alert-banner info show" id="alert-backup-lembrete">
+      <span class="icon">💾</span>
+      <span class="txt" style="flex:1;">
+        Lembrete: seus dados ficam só neste dispositivo. Exporte um backup antes de fechar.
+        <span id="alert-backup-ultimo" style="display:block;font-size:11px;color:var(--muted);margin-top:2px;"></span>
+      </span>
+      <button class="btn" style="padding:7px 12px;font-size:12px;flex-shrink:0;" onclick="exportarBackup()">Exportar agora</button>
+      <button class="del" style="flex-shrink:0;" title="Dispensar por agora" onclick="dispensarLembreteBackup()">✕</button>
+    </div>
+    <div class="alert-banner" id="alert-limite">
+      <span class="icon">⚠️</span>
+      <span class="txt">Limite de perda diário atingido: <b id="alert-limite-txt"></b></span>
+    </div>
+    <div class="alert-banner" id="alert-stop-seq">
+      <span class="icon">⏸️</span>
+      <span class="txt" id="alert-stop-seq-txt"></span>
+    </div>
+    <div id="alertas-metodos-dashboard"></div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="label">Saldo atual</div>
+        <div class="value gold" id="d-saldo">$0,00</div>
+      </div>
+      <div class="card">
+        <div class="label">Total depositado</div>
+        <div class="value" id="d-dep">$0,00</div>
+        <div class="sub">soma bruta, sem conversão entre moedas</div>
+      </div>
+      <div class="card">
+        <div class="label">Total sacado</div>
+        <div class="value" id="d-saq">$0,00</div>
+        <div class="sub">soma bruta, sem conversão entre moedas</div>
+      </div>
+      <div class="card">
+        <div class="label">Resultado em operações</div>
+        <div class="value" id="d-resultado">$0,00</div>
+      </div>
+      <div class="card">
+        <div class="label">Taxa de acerto</div>
+        <div class="value" id="d-winrate">0%</div>
+        <div class="sub" id="d-winsub">0 win · 0 loss</div>
+      </div>
+      <div class="card">
+        <div class="label">Sequência atual</div>
+        <div class="value" id="d-streak">—</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Resultado de hoje <span class="tag" id="d-hoje-tag"></span></h2>
+      <div class="limit-row">
+        <div>
+          <label>Limite de perda diário ($)</label>
+          <input type="number" step="0.01" id="g-limite" value="30">
+        </div>
+        <button class="btn secondary" onclick="salvarLimite()">Salvar limite</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleRevisaoDia()">
+        <h2 style="margin-bottom:0;">📋 Revisão do dia</h2>
+        <span id="revisao-toggle-icon" style="color:var(--muted);font-size:13px;">▼ ver</span>
+      </div>
+      <div id="revisao-dia-conteudo" style="display:none;margin-top:14px;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Resumo do período</h2>
+      <div class="resumo-grid">
+        <div class="resumo-col">
+          <div class="resumo-titulo">Últimos 7 dias</div>
+          <div class="resumo-linha"><span>Resultado líquido</span><b id="rs-sem-resultado">$0,00</b></div>
+          <div class="resumo-linha"><span>Win / Loss</span><b id="rs-sem-wl">0 / 0</b></div>
+          <div class="resumo-linha"><span>Taxa de acerto</span><b id="rs-sem-winrate">0%</b></div>
+          <div class="resumo-linha"><span>Dias de meta</span><b id="rs-sem-meta">0</b></div>
+          <div class="resumo-linha"><span>Dias de stop</span><b id="rs-sem-stop">0</b></div>
+          <div class="resumo-linha"><span>Dias de empate</span><b id="rs-sem-empate">0</b></div>
+        </div>
+        <div class="resumo-col">
+          <div class="resumo-titulo">Este mês</div>
+          <div class="resumo-linha"><span>Resultado líquido</span><b id="rs-mes-resultado">$0,00</b></div>
+          <div class="resumo-linha"><span>Win / Loss</span><b id="rs-mes-wl">0 / 0</b></div>
+          <div class="resumo-linha"><span>Taxa de acerto</span><b id="rs-mes-winrate">0%</b></div>
+          <div class="resumo-linha"><span>Dias de meta</span><b id="rs-mes-meta">0</b></div>
+          <div class="resumo-linha"><span>Dias de stop</span><b id="rs-mes-stop">0</b></div>
+          <div class="resumo-linha"><span>Dias de empate</span><b id="rs-mes-empate">0</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>🎯 Meta de juros compostos</h2>
+      <div id="meta-config-form">
+        <div class="form-row">
+          <div>
+            <label>Banca inicial</label>
+            <input type="number" step="0.01" id="mj-banca" value="100">
+          </div>
+          <div>
+            <label>Moeda</label>
+            <select id="mj-moeda">
+              <option value="USD">Dólar (USD)</option>
+              <option value="BRL">Real (BRL)</option>
+              <option value="EUR">Euro (EUR)</option>
+              <option value="KWD">Dinar kuwaitiano (KWD)</option>
+            </select>
+          </div>
+          <div>
+            <label>% de meta por dia</label>
+            <input type="number" step="0.1" id="mj-percentual" value="10">
+          </div>
+          <div>
+            <label>Quantidade de dias</label>
+            <input type="number" step="1" id="mj-dias" value="7">
+          </div>
+        </div>
+        <button class="btn" onclick="criarMetaJuros()">Criar meta</button>
+        <div class="note">
+          Marque ✅ nos dias em que bateu a meta e ❌ nos dias em que não bateu. A meta dos próximos
+          dias é recalculada automaticamente com base na banca real, não na banca teórica.
+        </div>
+      </div>
+      <div id="meta-juros-conteudo"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Evolução do saldo <span class="tag">operações registradas</span></h2>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+        <div class="chart-tip" id="chart-tip"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Últimas operações</h2>
+      <div id="d-lastops"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Desempenho por par</h2>
+      <div id="d-por-par"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Desempenho por horário</h2>
+      <div id="d-por-horario"></div>
+    </div>
+
+    <div class="panel">
+      <h2>📊 Distribuição de operações</h2>
+      <div class="pizza-grid">
+        <div class="pizza-col">
+          <div class="pizza-titulo">Por par</div>
+          <canvas id="pizza-par" width="200" height="200"></canvas>
+          <div id="legenda-par" class="pizza-legenda"></div>
+        </div>
+        <div class="pizza-col">
+          <div class="pizza-titulo">Por método</div>
+          <canvas id="pizza-metodo" width="200" height="200"></canvas>
+          <div id="legenda-metodo" class="pizza-legenda"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CAIXA ===================== -->
+  <section class="view" id="view-caixa">
+    <div class="panel">
+      <h2 id="c-form-title">Novo lançamento</h2>
+      <div class="form-row">
+        <div>
+          <label>Tipo</label>
+          <select id="c-tipo">
+            <option value="deposito">Depósito</option>
+            <option value="saque">Saque</option>
+          </select>
+        </div>
+        <div>
+          <label>Moeda</label>
+          <select id="c-moeda">
+            <option value="USD">Dólar (USD)</option>
+            <option value="BRL">Real (BRL)</option>
+            <option value="EUR">Euro (EUR)</option>
+            <option value="KWD">Dinar kuwaitiano (KWD)</option>
+          </select>
+        </div>
+        <div>
+          <label>Valor</label>
+          <input type="number" step="0.01" id="c-valor" placeholder="0.00">
+        </div>
+        <div>
+          <label>Data</label>
+          <input type="date" id="c-data">
+        </div>
+        <div>
+          <label>Observação</label>
+          <input type="text" id="c-obs" placeholder="opcional">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="c-submit-btn" onclick="addCaixa()">Adicionar lançamento</button>
+        <button class="btn secondary" id="c-cancel-btn" style="display:none;" onclick="cancelarEdicaoCaixa()">Cancelar edição</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Histórico</h2>
+      <div id="c-tabela"></div>
+    </div>
+  </section>
+
+  <!-- ===================== OPERAÇÕES ===================== -->
+  <section class="view" id="view-operacoes">
+    <div id="alertas-metodos-ops"></div>
+    <div class="panel">
+      <h2 id="o-form-title">Nova operação</h2>
+      <div class="form-row">
+        <div>
+          <label>Data</label>
+          <input type="date" id="o-data">
+        </div>
+        <div>
+          <label>Horário</label>
+          <input type="time" id="o-hora">
+        </div>
+        <div>
+          <label>Par</label>
+          <input type="text" id="o-par" placeholder="EUR/USD">
+        </div>
+        <div>
+          <label>Tipo de moeda</label>
+          <select id="o-moeda">
+            <option value="OTC">OTC</option>
+            <option value="Forex">Forex</option>
+            <option value="Cripto">Cripto</option>
+          </select>
+        </div>
+        <div>
+          <label>Direção</label>
+          <select id="o-direcao">
+            <option value="Compra">Compra</option>
+            <option value="Venda">Venda</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Valor da entrada ($)</label>
+          <input type="number" step="0.01" id="o-valor" placeholder="0.00">
+        </div>
+        <div>
+          <label>Payout (%)</label>
+          <input type="number" step="1" id="o-payout" value="90">
+        </div>
+        <div>
+          <label>Gerenciamento</label>
+          <select id="o-gerenciamento" onchange="atualizarEtapas()">
+            <option value="soros">Soros (3 ciclos)</option>
+            <option value="2x1">2x1</option>
+            <option value="3x1">3x1</option>
+            <option value="personalizado" id="o-personalizado-label">Personalizado</option>
+          </select>
+        </div>
+        <div>
+          <label>Etapa</label>
+          <select id="o-ciclo"></select>
+        </div>
+        <div>
+          <label>Resultado</label>
+          <div class="btn-row" style="margin-top:2px;">
+            <button type="button" class="btn win" style="flex:1" onclick="setResultado('Win')">Win</button>
+            <button type="button" class="btn loss" style="flex:1" onclick="setResultado('Loss')">Loss</button>
+          </div>
+        </div>
+      </div>
+      <div class="sub" style="margin-bottom:10px;">
+        Etapa e valor da entrada são sugeridos automaticamente com base no que você configurou na aba
+        Gerenciamento. Ajuste se precisar. <button type="button" class="del" style="text-decoration:underline;font-family:'Inter',sans-serif;" onclick="resetarSessao()">Reiniciar sequência</button>
+      </div>
+      <div class="sub" style="margin-bottom:10px;" id="o-resultado-atual">Resultado selecionado: <b>—</b></div>
+      <div style="margin-bottom:10px;">
+        <label>Nota rápida (opcional)</label>
+        <input type="text" id="o-nota" placeholder="ex: entrei cedo demais, sinal fraco...">
+      </div>
+      <div style="margin-bottom:12px;">
+        <label>Print da operação (opcional)</label>
+        <input type="file" accept="image/*" id="o-imagem-input" onchange="selecionarImagemOperacao(this)">
+        <div id="o-imagem-preview"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="o-submit-btn" onclick="addOperacao()">Registrar operação</button>
+        <button class="btn secondary" id="o-cancel-btn" style="display:none;" onclick="cancelarEdicaoOperacao()">Cancelar edição</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Histórico de operações</h2>
+      <div class="form-row">
+        <div>
+          <label>Par</label>
+          <input type="text" id="f-par" placeholder="ex: EUR/USD" oninput="render()">
+        </div>
+        <div>
+          <label>Moeda</label>
+          <select id="f-moeda" onchange="render()">
+            <option value="">Todas</option>
+            <option value="OTC">OTC</option>
+            <option value="Forex">Forex</option>
+            <option value="Cripto">Cripto</option>
+          </select>
+        </div>
+        <div>
+          <label>Método</label>
+          <select id="f-metodo" onchange="render()">
+            <option value="">Todos</option>
+            <option value="soros">Soros</option>
+            <option value="2x1">2x1</option>
+            <option value="3x1">3x1</option>
+            <option value="personalizado">Personalizado</option>
+          </select>
+        </div>
+        <div>
+          <label>Resultado</label>
+          <select id="f-resultado" onchange="render()">
+            <option value="">Todos</option>
+            <option value="Win">Win</option>
+            <option value="Loss">Loss</option>
+          </select>
+        </div>
+      </div>
+      <div id="o-tabela"></div>
+    </div>
+  </section>
+
+  <!-- ===================== CALENDÁRIO ===================== -->
+  <section class="view" id="view-calendario">
+    <div class="panel">
+      <div class="cal-head">
+        <div class="cal-nav"><button onclick="mudarMes(-1)">‹</button></div>
+        <div class="month" id="cal-month"></div>
+        <div class="cal-nav"><button onclick="mudarMes(1)">›</button></div>
+      </div>
+      <div class="cal-grid" id="cal-dow"></div>
+      <div class="cal-grid" id="cal-grid" style="margin-top:5px;"></div>
+      <div class="cal-legend">
+        <span><span class="dot meta"></span> Meta batida</span>
+        <span><span class="dot stop"></span> Stop</span>
+        <span><span class="dot empate"></span> Empate</span>
+        <span>Toque num dia para registrar</span>
+      </div>
+
+      <div class="cal-form" id="cal-form">
+        <h2 id="cal-form-title" style="margin-bottom:12px;"></h2>
+        <label>Resultado do dia</label>
+        <div class="btn-row" style="margin-bottom:14px;flex-wrap:wrap;">
+          <button type="button" class="btn win" style="flex:1" onclick="setDiaStatus('meta')">Meta batida</button>
+          <button type="button" class="btn loss" style="flex:1" onclick="setDiaStatus('stop')">Stop</button>
+          <button type="button" class="btn secondary" style="flex:1" onclick="setDiaStatus('empate')">Empate</button>
+          <button type="button" class="btn secondary" style="flex:1" onclick="setDiaStatus(null)">Limpar</button>
+        </div>
+        <label>Como você se sentiu operando hoje?</label>
+        <div class="emo-row" id="cal-emocoes">
+          <button type="button" class="emo-btn" data-emo="focado" title="Focado">🧐</button>
+          <button type="button" class="emo-btn" data-emo="tranquilo" title="Tranquilo">🙂</button>
+          <button type="button" class="emo-btn" data-emo="nervoso" title="Nervoso">😬</button>
+          <button type="button" class="emo-btn" data-emo="com raiva" title="Com raiva">😡</button>
+          <button type="button" class="emo-btn" data-emo="de boa" title="De boa">😎</button>
+          <button type="button" class="emo-btn" data-emo="cansado" title="Cansado">😴</button>
+        </div>
+        <label>Nota (opcional)</label>
+        <input type="text" id="cal-nota" placeholder="o que aconteceu hoje?" style="margin-bottom:14px;">
+        <button class="btn" onclick="salvarDia()">Salvar dia</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== GERENCIAMENTO ===================== -->
+  <section class="view" id="view-gerenciamento">
+    <div class="panel">
+      <h2>Calculadora de gerenciamento</h2>
+      <div class="btn-row" style="margin-bottom:18px;">
+        <button type="button" class="btn secondary g-metodo-btn active" data-metodo="soros" onclick="mostrarMetodo('soros')">Soros (3 ciclos)<span class="badge-padrao" id="badge-soros"></span></button>
+        <button type="button" class="btn secondary g-metodo-btn" data-metodo="2x1" onclick="mostrarMetodo('2x1')">2x1<span class="badge-padrao" id="badge-2x1"></span></button>
+        <button type="button" class="btn secondary g-metodo-btn" data-metodo="3x1" onclick="mostrarMetodo('3x1')">3x1<span class="badge-padrao" id="badge-3x1"></span></button>
+        <button type="button" class="btn secondary g-metodo-btn" data-metodo="personalizado" onclick="mostrarMetodo('personalizado')">Personalizado<span class="badge-padrao" id="badge-personalizado"></span></button>
+        <button type="button" class="btn secondary g-metodo-btn" data-metodo="juros" onclick="mostrarMetodo('juros')">Juros compostos</button>
+      </div>
+
+      <div id="metodo-soros">
+        <div class="form-row">
+          <div>
+            <label>Valor do stop ($)</label>
+            <input type="number" step="0.01" id="g-stop" value="9">
+          </div>
+          <div>
+            <label>Payout (%)</label>
+            <input type="number" step="1" id="g-payout" value="90">
+          </div>
+        </div>
+        <button class="btn" onclick="calcularCiclos()">Calcular ciclos</button>
+        <div class="note">
+          Divida o stop em 3 entradas iguais. Em cada ciclo, se a 1ª entrada ganhar, faça o soros
+          (reinvista entrada + lucro). Se ganhar as duas seguidas, o ciclo fecha em lucro. Se perder,
+          avança para o próximo ciclo. Se perder os 3 ciclos, encerra o stop.
+        </div>
+        <div class="cycles" id="g-ciclos"></div>
+        <button class="btn secondary" style="margin-top:14px;" onclick="definirPadrao('soros')">★ Usar Soros como padrão no registro</button>
+      </div>
+
+      <div id="metodo-2x1" style="display:none;">
+        <div class="form-row">
+          <div>
+            <label>Valor da entrada ($)</label>
+            <input type="number" step="0.01" id="g2-entrada" value="3">
+          </div>
+          <div>
+            <label>Payout (%)</label>
+            <input type="number" step="1" id="g2-payout" value="90">
+          </div>
+        </div>
+        <button class="btn" onclick="calcular2x1()">Calcular 2x1</button>
+        <div class="note">
+          Faça entradas de valor fixo. 2 wins seguidos = meta, encerra no lucro. 2 losses seguidos = stop,
+          encerra a sessão. Simples e direto: risco e alvo limitados a 2 entradas.
+        </div>
+        <div class="cycles" id="g2-resultado"></div>
+        <button class="btn secondary" style="margin-top:14px;" onclick="definirPadrao('2x1')">★ Usar 2x1 como padrão no registro</button>
+      </div>
+
+      <div id="metodo-3x1" style="display:none;">
+        <div class="form-row">
+          <div>
+            <label>Valor da entrada ($)</label>
+            <input type="number" step="0.01" id="g3-entrada" value="3">
+          </div>
+          <div>
+            <label>Payout (%)</label>
+            <input type="number" step="1" id="g3-payout" value="90">
+          </div>
+        </div>
+        <button class="btn" onclick="calcular3x1()">Calcular 3x1</button>
+        <div class="note">
+          Até 3 entradas, meta é fechar com 2 wins. Se as 2 primeiras vierem win, você já bateu a meta e
+          nem precisa da 3ª. Se a 1ª vier loss, ainda restam 2 chances: precisa ganhar as duas para bater
+          a meta. Se acumular 2 losses (em qualquer ordem), é stop.
+        </div>
+        <div class="cycles" id="g3-resultado"></div>
+        <button class="btn secondary" style="margin-top:14px;" onclick="definirPadrao('3x1')">★ Usar 3x1 como padrão no registro</button>
+      </div>
+
+      <div id="metodo-personalizado" style="display:none;">
+        <div class="form-row">
+          <div>
+            <label>Nome do gerenciamento</label>
+            <input type="text" id="gp-nome" value="Meu gerenciamento" placeholder="ex: 4x2 agressivo">
+          </div>
+          <div>
+            <label>Valor da entrada</label>
+            <input type="number" step="0.01" id="gp-entrada" value="3">
+          </div>
+          <div>
+            <label>Payout (%)</label>
+            <input type="number" step="1" id="gp-payout" value="90">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Wins seguidos para meta</label>
+            <input type="number" step="1" min="1" id="gp-meta" value="2">
+          </div>
+          <div>
+            <label>Losses seguidos para stop</label>
+            <input type="number" step="1" min="1" id="gp-stop" value="2">
+          </div>
+          <div>
+            <label>Reinvestir lucro no próximo win?</label>
+            <select id="gp-reinvestir">
+              <option value="nao">Não — entrada fixa</option>
+              <option value="sim">Sim — estilo soros</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn" onclick="calcularPersonalizado()">Salvar personalizado</button>
+        <div class="note">
+          Monte sua própria regra: defina quantos wins seguidos fecham a meta e quantos losses seguidos
+          fecham o stop. Se ativar o reinvestimento, cada win soma o lucro à próxima entrada (como no
+          soros); se desativar, a entrada continua sempre no mesmo valor.
+        </div>
+        <div class="cycles" id="gp-resultado"></div>
+        <button class="btn secondary" style="margin-top:14px;" onclick="definirPadrao('personalizado')">★ Usar personalizado como padrão no registro</button>
+      </div>
+
+      <div id="metodo-juros" style="display:none;">
+        <div class="sub" style="margin-bottom:12px;">Moeda da simulação: <b id="jc-moeda-tag" style="color:var(--gold);font-family:'IBM Plex Mono',monospace;">USD</b> — segue automaticamente a moeda do seu último depósito.</div>
+        <div class="form-row">
+          <div>
+            <label>Banca inicial</label>
+            <input type="number" step="0.01" id="jc-banca" value="100">
+          </div>
+          <div>
+            <label>% de meta por dia</label>
+            <input type="number" step="0.1" id="jc-percentual" value="10">
+          </div>
+          <div>
+            <label>Quantidade de dias</label>
+            <input type="number" step="1" id="jc-dias" value="20">
+          </div>
+        </div>
+        <button class="btn" onclick="calcularJuros()">Simular</button>
+        <div class="note">
+          Simulação de juros compostos: a cada dia, a meta é ganhar o % informado em cima da banca do
+          dia anterior (não da banca inicial). O crescimento acelera com o tempo — por isso vale simular
+          antes de definir sua meta diária.
+        </div>
+        <div class="grid" id="jc-resumo" style="margin-top:16px;"></div>
+        <div style="overflow-x:auto;margin-top:6px;">
+          <table id="jc-tabela"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Dados salvos apenas no seu dispositivo, dentro deste artifact.<br>Versão: 18/07/2026 (v5) — aviso quando o navegador não consegue salvar</footer>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="fecharLightbox()">
+  <img id="lightbox-img" src="" alt="Print da operação">
+</div>
+
+<script>
+let DATA = { caixa: [], operacoes: [], settings: { limiteDiario: 30, tema:'dark' }, calendario: {} };
+let resultadoAtual = null;
+const SIMBOLOS = { USD:'$', BRL:'R$', EUR:'€', KWD:'KD' };
+
+function fmtMoeda(n, moeda){
+  const v = Number(n)||0;
+  const s = SIMBOLOS[moeda] || '$';
+  return (v<0?'-'+s:s) + Math.abs(v).toFixed(2).replace('.', ',');
+}
+
+// ---------- armazenamento: usa window.storage (dentro do Claude) e cai para localStorage
+// quando o arquivo é aberto fora do Claude (ex: baixado e aberto direto no navegador) ----------
+const TEM_STORAGE_CLAUDE = (typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+
+const infoArmazenamento = document.getElementById('drawer-storage-info');
+if(infoArmazenamento){
+  infoArmazenamento.textContent = TEM_STORAGE_CLAUDE
+    ? 'Dados salvos no armazenamento do Claude.'
+    : 'Dados salvos neste navegador (localStorage). Se limpar os dados do navegador, eles somem — faça backup com frequência.';
+}
+
+async function storageGet(chave){
+  if(TEM_STORAGE_CLAUDE){
+    try{ return await window.storage.get(chave, false); }
+    catch(e){ /* segue para o fallback abaixo se falhar */ }
+  }
+  try{
+    const v = localStorage.getItem(chave);
+    return v ? {key:chave, value:v} : null;
+  }catch(e){ return null; }
+}
+async function storageSet(chave, valor){
+  if(TEM_STORAGE_CLAUDE){
+    try{ return await window.storage.set(chave, valor, false); }
+    catch(e){ /* segue para o fallback abaixo se falhar */ }
+  }
+  try{
+    localStorage.setItem(chave, valor);
+    return {key:chave, value:valor};
+  }catch(e){ return null; }
+}
+
+// testa, assim que o app abre, se dá pra salvar e reler algo — mostra um aviso se não der
+async function testarArmazenamento(){
+  const banner = document.getElementById('alert-storage-fail');
+  try{
+    const chaveTeste = 'ledger-teste-armazenamento';
+    const valorTeste = String(Date.now());
+    const gravou = await storageSet(chaveTeste, valorTeste);
+    const leu = gravou ? await storageGet(chaveTeste) : null;
+    const funcionou = !!(gravou && leu && leu.value===valorTeste);
+    banner.classList.toggle('show', !funcionou);
+  }catch(e){
+    banner.classList.add('show');
+  }
+}
+
+async function loadData(){
+  try{
+    const r = await storageGet('ledger-data');
+    if(r && r.value) DATA = JSON.parse(r.value);
+  }catch(e){ /* nada salvo ainda */ }
+  aplicarDadosCarregados();
+}
+
+// aplica o conteúdo atual de DATA em toda a interface — usado no carregamento normal e após importar um backup
+function aplicarDadosCarregados(){
+  if(!DATA.settings) DATA.settings = { limiteDiario: 30, tema:'dark' };
+  if(!DATA.settings.tema) DATA.settings.tema = 'dark';
+  if(!DATA.calendario) DATA.calendario = {};
+  document.getElementById('g-limite').value = DATA.settings.limiteDiario;
+  aplicarTema(DATA.settings.tema);
+  garantirSessao();
+
+  // restaura os campos das calculadoras de gerenciamento com a última configuração salva
+  const cfgS = DATA.settings.gerenciamento.soros;
+  document.getElementById('g-stop').value = cfgS.stop;
+  document.getElementById('g-payout').value = cfgS.payout;
+  const cfg2 = DATA.settings.gerenciamento['2x1'];
+  document.getElementById('g2-entrada').value = cfg2.entrada;
+  document.getElementById('g2-payout').value = cfg2.payout;
+  const cfg3 = DATA.settings.gerenciamento['3x1'];
+  document.getElementById('g3-entrada').value = cfg3.entrada;
+  document.getElementById('g3-payout').value = cfg3.payout;
+  const cfgP = DATA.settings.gerenciamento.personalizado;
+  document.getElementById('gp-nome').value = cfgP.nome;
+  document.getElementById('gp-entrada').value = cfgP.entrada;
+  document.getElementById('gp-payout').value = cfgP.payout;
+  document.getElementById('gp-meta').value = cfgP.metaWins;
+  document.getElementById('gp-stop').value = cfgP.stopLosses;
+  document.getElementById('gp-reinvestir').value = cfgP.reinvestir ? 'sim' : 'nao';
+  calcularCiclos(false);
+  calcular2x1(false);
+  calcular3x1(false);
+  calcularPersonalizado(false);
+  atualizarBadgesPadrao();
+  document.getElementById('o-gerenciamento').value = DATA.settings.metodoPadrao;
+  atualizarEtapas();
+  atualizarLembreteBackup();
+
+  render();
+  calcularJuros();
+  renderMetaJuros();
+}
+async function saveData(){
+  try{
+    const resultado = await storageSet('ledger-data', JSON.stringify(DATA));
+    if(!resultado){
+      mostrarAvisoSalvamento();
+    }
+  }catch(e){
+    console.error('Erro ao salvar', e);
+    mostrarAvisoSalvamento();
+  }
+}
+let avisoSalvamentoMostrado = false;
+function mostrarAvisoSalvamento(){
+  if(avisoSalvamentoMostrado) return; // evita repetir o alerta várias vezes seguidas
+  avisoSalvamentoMostrado = true;
+  alert('⚠️ Não foi possível salvar os dados neste navegador. Isso costuma acontecer quando o arquivo é aberto de forma temporária. Exporte um backup agora (menu ☰ → Exportar backup) antes de fechar, pra não perder o que já foi registrado.');
+}
+
+// ---------- lembrete de backup — aparece toda vez que o app é aberto ----------
+let lembreteBackupDispensado = false;
+function atualizarLembreteBackup(){
+  const banner = document.getElementById('alert-backup-lembrete');
+  const sub = document.getElementById('alert-backup-ultimo');
+  if(!banner) return;
+  if(lembreteBackupDispensado){
+    banner.classList.remove('show');
+    return;
+  }
+  banner.classList.add('show');
+  if(DATA.settings.ultimoBackup){
+    const dias = Math.floor((Date.now() - new Date(DATA.settings.ultimoBackup).getTime()) / 86400000);
+    sub.textContent = dias<=0 ? 'Último backup: hoje.' : `Último backup: há ${dias} dia${dias>1?'s':''}.`;
+  }else{
+    sub.textContent = 'Você ainda não fez nenhum backup.';
+  }
+}
+function dispensarLembreteBackup(){
+  lembreteBackupDispensado = true;
+  document.getElementById('alert-backup-lembrete').classList.remove('show');
+}
+
+// ---------- backup: exportar / importar ----------
+function exportarBackup(){
+  const conteudo = JSON.stringify(DATA, null, 2);
+  const blob = new Blob([conteudo], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dataHoje = todayStr();
+  a.href = url;
+  a.download = `ledger-backup-${dataHoje}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  DATA.settings.ultimoBackup = new Date().toISOString();
+  saveData();
+  atualizarLembreteBackup();
+  fecharGaveta();
+}
+function importarBackup(){
+  document.getElementById('backup-file-input').click();
+}
+function processarArquivoBackup(input){
+  const arquivo = input.files[0];
+  if(!arquivo) return;
+  const leitor = new FileReader();
+  leitor.onload = async (e)=>{
+    try{
+      const dados = JSON.parse(e.target.result);
+      if(!dados || typeof dados!=='object' || !Array.isArray(dados.operacoes)){
+        alert('Este arquivo não parece ser um backup válido do Ledger.');
+        return;
+      }
+      const confirmar = confirm('Importar este backup vai substituir todos os dados atuais do app. Deseja continuar?');
+      if(!confirmar) return;
+      DATA = dados;
+      await saveData();
+      aplicarDadosCarregados();
+      alert('Backup importado com sucesso.');
+    }catch(err){
+      alert('Não foi possível ler este arquivo. Verifique se é um backup válido (.json).');
+    }
+    input.value = '';
+    fecharGaveta();
+  };
+  leitor.readAsText(arquivo);
+}
+
+function fmt(n){
+  const v = Number(n)||0;
+  return (v<0?'-$':'$') + Math.abs(v).toFixed(2).replace('.', ',');
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+// ---------- tabs (topo horizontal + gaveta lateral) ----------
+function goToView(view){
+  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  if(view==='calendario') renderCalendario();
+  fecharGaveta();
+}
+document.querySelectorAll('[data-view]').forEach(btn=>{
+  btn.addEventListener('click', ()=>goToView(btn.dataset.view));
+});
+
+const menuToggle = document.getElementById('menu-toggle');
+const drawer = document.getElementById('drawer');
+const drawerBackdrop = document.getElementById('drawer-backdrop');
+function abrirGaveta(){
+  drawer.classList.add('show');
+  drawerBackdrop.classList.add('show');
+}
+function fecharGaveta(){
+  drawer.classList.remove('show');
+  drawerBackdrop.classList.remove('show');
+}
+menuToggle.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  abrirGaveta();
+});
+drawerBackdrop.addEventListener('click', fecharGaveta);
+
+// ---------- tema claro/escuro ----------
+const themeToggle = document.getElementById('theme-toggle');
+function aplicarTema(tema){
+  document.body.classList.toggle('light', tema==='light');
+  themeToggle.textContent = tema==='light' ? '☀️' : '🌙';
+}
+themeToggle.addEventListener('click', ()=>{
+  const novo = DATA.settings.tema==='light' ? 'dark' : 'light';
+  DATA.settings.tema = novo;
+  aplicarTema(novo);
+  saveData();
+  drawChart();
+});
+
+// ---------- caixa ----------
+document.getElementById('c-data').value = todayStr();
+document.getElementById('o-data').value = todayStr();
+document.getElementById('o-hora').value = new Date().toTimeString().slice(0,5);
+
+function salvarLimite(){
+  const v = parseFloat(document.getElementById('g-limite').value);
+  DATA.settings.limiteDiario = (v>0) ? v : 0;
+  saveData();
+  render();
+}
+
+function toggleRevisaoDia(){
+  const conteudo = document.getElementById('revisao-dia-conteudo');
+  const icon = document.getElementById('revisao-toggle-icon');
+  const aberto = conteudo.style.display!=='none';
+  conteudo.style.display = aberto ? 'none' : 'block';
+  icon.textContent = aberto ? '▼ ver' : '▲ fechar';
+}
+
+let editandoCaixaId = null;
+
+async function addCaixa(){
+  const tipo = document.getElementById('c-tipo').value;
+  const moeda = document.getElementById('c-moeda').value;
+  const valor = parseFloat(document.getElementById('c-valor').value);
+  const data = document.getElementById('c-data').value || todayStr();
+  const obs = document.getElementById('c-obs').value;
+  if(!valor || valor<=0){ alert('Informe um valor válido.'); return; }
+
+  if(editandoCaixaId){
+    const item = DATA.caixa.find(x=>x.id===editandoCaixaId);
+    if(item){ Object.assign(item, {tipo, moeda, valor, data, obs}); }
+    cancelarEdicaoCaixa();
+  }else{
+    DATA.caixa.unshift({id:Date.now(), tipo, moeda, valor, data, obs});
+    document.getElementById('c-valor').value='';
+    document.getElementById('c-obs').value='';
+  }
+  await saveData();
+  render();
+  calcularJuros();
+}
+function delCaixa(id){
+  DATA.caixa = DATA.caixa.filter(x=>x.id!==id);
+  if(editandoCaixaId===id) cancelarEdicaoCaixa();
+  saveData(); render();
+  calcularJuros();
+}
+function editarCaixa(id){
+  const item = DATA.caixa.find(x=>x.id===id);
+  if(!item) return;
+  editandoCaixaId = id;
+  document.getElementById('c-tipo').value = item.tipo;
+  document.getElementById('c-moeda').value = item.moeda||'USD';
+  document.getElementById('c-valor').value = item.valor;
+  document.getElementById('c-data').value = item.data;
+  document.getElementById('c-obs').value = item.obs||'';
+  document.getElementById('c-form-title').textContent = 'Editando lançamento';
+  document.getElementById('c-submit-btn').textContent = 'Salvar edição';
+  document.getElementById('c-cancel-btn').style.display = 'inline-block';
+  goToView('caixa');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function cancelarEdicaoCaixa(){
+  editandoCaixaId = null;
+  document.getElementById('c-form-title').textContent = 'Novo lançamento';
+  document.getElementById('c-submit-btn').textContent = 'Adicionar lançamento';
+  document.getElementById('c-cancel-btn').style.display = 'none';
+  document.getElementById('c-valor').value='';
+  document.getElementById('c-obs').value='';
+  document.getElementById('c-data').value = todayStr();
+}
+
+// ---------- operações ----------
+const ETAPAS = {
+  soros: [
+    {v:'1a',l:'Ciclo 1 — Entrada'},{v:'1b',l:'Ciclo 1 — Soros'},
+    {v:'2a',l:'Ciclo 2 — Entrada'},{v:'2b',l:'Ciclo 2 — Soros'},
+    {v:'3a',l:'Ciclo 3 — Entrada'},{v:'3b',l:'Ciclo 3 — Soros'},
+  ],
+  '2x1': [{v:'1',l:'Entrada 1'},{v:'2',l:'Entrada 2'}],
+  '3x1': [{v:'1',l:'Entrada 1'},{v:'2',l:'Entrada 2'},{v:'3',l:'Entrada 3'}],
+};
+function atualizarEtapas(){
+  const tipo = document.getElementById('o-gerenciamento').value;
+  const sel = document.getElementById('o-ciclo');
+  if(tipo==='personalizado'){
+    garantirSessao();
+    const cfg = DATA.settings.gerenciamento.personalizado;
+    const max = cfg.metaWins + cfg.stopLosses - 1;
+    let opts = [];
+    for(let i=1;i<=max;i++) opts.push(`<option value="${i}">Entrada ${i}</option>`);
+    sel.innerHTML = opts.join('');
+  }else{
+    sel.innerHTML = ETAPAS[tipo].map(e=>`<option value="${e.v}">${e.l}</option>`).join('');
+  }
+  preencherSugestao();
+}
+atualizarEtapas();
+
+// ---------- integração com o gerenciamento configurado ----------
+function garantirSessao(){
+  if(!DATA.settings.gerenciamento) DATA.settings.gerenciamento = {};
+  if(!DATA.settings.gerenciamento.soros) DATA.settings.gerenciamento.soros = {stop:9, payout:90};
+  if(!DATA.settings.gerenciamento['2x1']) DATA.settings.gerenciamento['2x1'] = {entrada:3, payout:90};
+  if(!DATA.settings.gerenciamento['3x1']) DATA.settings.gerenciamento['3x1'] = {entrada:3, payout:90};
+  if(!DATA.settings.gerenciamento.personalizado) DATA.settings.gerenciamento.personalizado = {nome:'Meu gerenciamento', entrada:3, payout:90, metaWins:2, stopLosses:2, reinvestir:false};
+  if(!DATA.settings.metodoPadrao) DATA.settings.metodoPadrao = 'soros';
+  if(!DATA.sessao) DATA.sessao = {};
+  if(!DATA.sessao.soros) DATA.sessao.soros = {etapa:'1a', valor:DATA.settings.gerenciamento.soros.stop/3};
+  if(!DATA.sessao['2x1']) DATA.sessao['2x1'] = {etapa:'1', valor:DATA.settings.gerenciamento['2x1'].entrada};
+  if(!DATA.sessao['3x1']) DATA.sessao['3x1'] = {etapa:'1', valor:DATA.settings.gerenciamento['3x1'].entrada, wins:0, losses:0};
+  if(!DATA.sessao.personalizado) DATA.sessao.personalizado = {etapa:'1', valor:DATA.settings.gerenciamento.personalizado.entrada, wins:0, losses:0};
+}
+
+// preenche o formulário de operação com a próxima entrada sugerida pelo gerenciamento configurado
+function preencherSugestao(){
+  garantirSessao();
+  const tipo = document.getElementById('o-gerenciamento').value;
+  const cfg = DATA.settings.gerenciamento[tipo];
+  const sess = DATA.sessao[tipo];
+  document.getElementById('o-ciclo').value = sess.etapa;
+  document.getElementById('o-valor').value = Number(sess.valor).toFixed(2);
+  document.getElementById('o-payout').value = cfg.payout;
+}
+
+// avança a sessão daquele gerenciamento após uma operação ser registrada
+function avancarSessao(tipo, etapaUsada, resultado, valorUsado){
+  garantirSessao();
+  const cfg = DATA.settings.gerenciamento[tipo];
+  if(tipo==='soros'){
+    const baseEntrada = cfg.stop/3;
+    const soros = valorUsado*(1+cfg.payout/100);
+    const mapa = {
+      '1a': resultado==='Win' ? {etapa:'1b', valor:soros} : {etapa:'2a', valor:baseEntrada},
+      '1b': {etapa:'1a', valor:baseEntrada},
+      '2a': resultado==='Win' ? {etapa:'2b', valor:soros} : {etapa:'3a', valor:baseEntrada},
+      '2b': {etapa:'1a', valor:baseEntrada},
+      '3a': resultado==='Win' ? {etapa:'3b', valor:soros} : {etapa:'1a', valor:baseEntrada},
+      '3b': {etapa:'1a', valor:baseEntrada},
+    };
+    DATA.sessao.soros = mapa[etapaUsada] || {etapa:'1a', valor:baseEntrada};
+  }else if(tipo==='2x1'){
+    DATA.sessao['2x1'] = etapaUsada==='1'
+      ? {etapa:'2', valor:cfg.entrada}
+      : {etapa:'1', valor:cfg.entrada};
+  }else if(tipo==='3x1'){
+    let {wins, losses} = DATA.sessao['3x1'];
+    if(resultado==='Win') wins++; else losses++;
+    const etapaNum = parseInt(etapaUsada);
+    if(wins>=2 || losses>=2 || etapaNum>=3){
+      DATA.sessao['3x1'] = {etapa:'1', valor:cfg.entrada, wins:0, losses:0};
+    }else{
+      DATA.sessao['3x1'] = {etapa:String(etapaNum+1), valor:cfg.entrada, wins, losses};
+    }
+  }else if(tipo==='personalizado'){
+    let {wins, losses} = DATA.sessao.personalizado;
+    if(resultado==='Win') wins++; else losses++;
+    const etapaNum = parseInt(etapaUsada);
+    const maxEntradas = cfg.metaWins + cfg.stopLosses - 1;
+    if(wins>=cfg.metaWins || losses>=cfg.stopLosses || etapaNum>=maxEntradas){
+      DATA.sessao.personalizado = {etapa:'1', valor:cfg.entrada, wins:0, losses:0};
+    }else{
+      const proximoValor = (cfg.reinvestir && resultado==='Win') ? valorUsado*(1+cfg.payout/100) : cfg.entrada;
+      DATA.sessao.personalizado = {etapa:String(etapaNum+1), valor:proximoValor, wins, losses};
+    }
+  }
+  saveData();
+}
+
+function resetarSessao(){
+  const tipo = document.getElementById('o-gerenciamento').value;
+  garantirSessao();
+  const cfg = DATA.settings.gerenciamento[tipo];
+  if(tipo==='soros') DATA.sessao.soros = {etapa:'1a', valor:cfg.stop/3};
+  else if(tipo==='2x1') DATA.sessao['2x1'] = {etapa:'1', valor:cfg.entrada};
+  else if(tipo==='3x1') DATA.sessao['3x1'] = {etapa:'1', valor:cfg.entrada, wins:0, losses:0};
+  else DATA.sessao.personalizado = {etapa:'1', valor:cfg.entrada, wins:0, losses:0};
+  saveData();
+  preencherSugestao();
+}
+
+// define qual gerenciamento é o padrão usado ao abrir o Registro de Operações
+function definirPadrao(tipo){
+  garantirSessao();
+  DATA.settings.metodoPadrao = tipo;
+  saveData();
+  atualizarBadgesPadrao();
+}
+function atualizarBadgesPadrao(){
+  garantirSessao();
+  const padrao = DATA.settings.metodoPadrao;
+  ['soros','2x1','3x1','personalizado'].forEach(t=>{
+    const el = document.getElementById('badge-'+t);
+    if(el) el.classList.toggle('show', t===padrao);
+  });
+}
+
+function setResultado(r){
+  resultadoAtual = r;
+  document.getElementById('o-resultado-atual').innerHTML = 'Resultado selecionado: <b>'+r+'</b>';
+}
+let editandoOperacaoId = null;
+
+// ---------- print da operação (imagem anexada) ----------
+let imagemOperacaoAtual = null;
+
+function selecionarImagemOperacao(input){
+  const arquivo = input.files[0];
+  if(!arquivo) return;
+  if(!arquivo.type.startsWith('image/')){
+    alert('Selecione um arquivo de imagem.');
+    input.value = '';
+    return;
+  }
+  const leitor = new FileReader();
+  leitor.onload = (e)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      // redimensiona/comprime pra não pesar no armazenamento
+      const maxLado = 900;
+      let w = img.width, h = img.height;
+      if(w>maxLado || h>maxLado){
+        if(w>h){ h = Math.round(h*(maxLado/w)); w = maxLado; }
+        else{ w = Math.round(w*(maxLado/h)); h = maxLado; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      imagemOperacaoAtual = canvas.toDataURL('image/jpeg', 0.65);
+      renderPreviewImagemOperacao();
+    };
+    img.src = e.target.result;
+  };
+  leitor.readAsDataURL(arquivo);
+  input.value = '';
+}
+function removerImagemOperacao(){
+  imagemOperacaoAtual = null;
+  renderPreviewImagemOperacao();
+}
+function renderPreviewImagemOperacao(){
+  const box = document.getElementById('o-imagem-preview');
+  box.innerHTML = '';
+  if(!imagemOperacaoAtual) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'img-preview-wrap';
+  const img = document.createElement('img');
+  img.src = imagemOperacaoAtual;
+  img.onclick = ()=>abrirLightbox(imagemOperacaoAtual);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'img-preview-remove';
+  btn.textContent = '✕';
+  btn.onclick = removerImagemOperacao;
+  wrap.appendChild(img);
+  wrap.appendChild(btn);
+  box.appendChild(wrap);
+}
+function abrirLightboxPorId(id){
+  const op = DATA.operacoes.find(x=>x.id===id);
+  if(op && op.imagem) abrirLightbox(op.imagem);
+}
+function abrirLightbox(src){
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('show');
+}
+function fecharLightbox(){
+  document.getElementById('lightbox').classList.remove('show');
+}
+
+async function addOperacao(){
+  const data = document.getElementById('o-data').value || todayStr();
+  const hora = document.getElementById('o-hora').value;
+  const par = document.getElementById('o-par').value.trim();
+  const moeda = document.getElementById('o-moeda').value;
+  const direcao = document.getElementById('o-direcao').value;
+  const valor = parseFloat(document.getElementById('o-valor').value);
+  const payout = parseFloat(document.getElementById('o-payout').value)||0;
+  const gerenciamento = document.getElementById('o-gerenciamento').value;
+  const ciclo = document.getElementById('o-ciclo').value;
+  const nota = document.getElementById('o-nota').value.trim();
+  if(!par){ alert('Informe o par.'); return; }
+  if(!valor || valor<=0){ alert('Informe o valor da entrada.'); return; }
+  if(!resultadoAtual){ alert('Selecione Win ou Loss.'); return; }
+  const lucro = resultadoAtual==='Win' ? valor*(payout/100) : -valor;
+
+  if(editandoOperacaoId){
+    const item = DATA.operacoes.find(x=>x.id===editandoOperacaoId);
+    if(item){ Object.assign(item, {data, hora, par, moeda, direcao, valor, payout, gerenciamento, ciclo, resultado:resultadoAtual, lucro, nota, imagem:imagemOperacaoAtual}); }
+    cancelarEdicaoOperacao();
+  }else{
+    DATA.operacoes.unshift({id:Date.now(), data, hora, par, moeda, direcao, valor, payout, gerenciamento, ciclo, resultado:resultadoAtual, lucro, nota, imagem:imagemOperacaoAtual});
+    avancarSessao(gerenciamento, ciclo, resultadoAtual, valor);
+    document.getElementById('o-par').value='';
+    document.getElementById('o-hora').value = new Date().toTimeString().slice(0,5);
+    document.getElementById('o-nota').value='';
+    imagemOperacaoAtual = null;
+    renderPreviewImagemOperacao();
+    resultadoAtual = null;
+    document.getElementById('o-resultado-atual').innerHTML = 'Resultado selecionado: <b>—</b>';
+    preencherSugestao();
+  }
+  await saveData();
+  render();
+}
+function delOperacao(id){
+  DATA.operacoes = DATA.operacoes.filter(x=>x.id!==id);
+  if(editandoOperacaoId===id) cancelarEdicaoOperacao();
+  saveData(); render();
+}
+function editarOperacao(id){
+  const item = DATA.operacoes.find(x=>x.id===id);
+  if(!item) return;
+  editandoOperacaoId = id;
+  document.getElementById('o-data').value = item.data;
+  document.getElementById('o-hora').value = item.hora||'';
+  document.getElementById('o-par').value = item.par;
+  document.getElementById('o-moeda').value = item.moeda;
+  document.getElementById('o-direcao').value = item.direcao;
+  document.getElementById('o-gerenciamento').value = item.gerenciamento||'soros';
+  atualizarEtapas();
+  document.getElementById('o-ciclo').value = item.ciclo;
+  document.getElementById('o-valor').value = item.valor;
+  document.getElementById('o-payout').value = item.payout;
+  document.getElementById('o-nota').value = item.nota||'';
+  imagemOperacaoAtual = item.imagem||null;
+  renderPreviewImagemOperacao();
+  resultadoAtual = item.resultado;
+  document.getElementById('o-resultado-atual').innerHTML = 'Resultado selecionado: <b>'+item.resultado+'</b>';
+  document.getElementById('o-form-title').textContent = 'Editando operação';
+  document.getElementById('o-submit-btn').textContent = 'Salvar edição';
+  document.getElementById('o-cancel-btn').style.display = 'inline-block';
+  goToView('operacoes');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function cancelarEdicaoOperacao(){
+  editandoOperacaoId = null;
+  document.getElementById('o-form-title').textContent = 'Nova operação';
+  document.getElementById('o-submit-btn').textContent = 'Registrar operação';
+  document.getElementById('o-cancel-btn').style.display = 'none';
+  document.getElementById('o-par').value='';
+  document.getElementById('o-nota').value='';
+  imagemOperacaoAtual = null;
+  renderPreviewImagemOperacao();
+  resultadoAtual = null;
+  document.getElementById('o-resultado-atual').innerHTML = 'Resultado selecionado: <b>—</b>';
+  document.getElementById('o-data').value = todayStr();
+  document.getElementById('o-hora').value = new Date().toTimeString().slice(0,5);
+  preencherSugestao();
+}
+
+// ---------- soros calculator ----------
+function calcularCiclos(resetarSessaoTb=true){
+  const stop = parseFloat(document.getElementById('g-stop').value)||0;
+  const payout = (parseFloat(document.getElementById('g-payout').value)||0)/100;
+  const entrada = stop/3;
+  let acumulado = 0;
+  let html = '';
+  for(let i=1;i<=3;i++){
+    const lucro1 = entrada*payout;
+    const soros = entrada + lucro1;
+    const lucro2 = soros*payout;
+    const lucroLiquidoCiclo = lucro1 + lucro2; // se ganhar as duas
+    const resultadoSeGanhar = acumulado + lucroLiquidoCiclo;
+    const resultadoSePerder = acumulado - entrada;
+    html += `
+      <div class="cycle-card">
+        <div class="num">Ciclo ${i}</div>
+        <div class="row"><span>Entrada 1</span><b>${fmt(entrada)}</b></div>
+        <div class="row"><span>Se ganhar → soros</span><b>${fmt(soros)}</b></div>
+        <div class="row"><span>Se ganhar as 2</span><b style="color:var(--win)">+${fmt(lucroLiquidoCiclo)}</b></div>
+        <div class="net">
+          <span style="font-size:11.5px;color:var(--muted)">Líquido acumulado (ganhando)</span>
+          <span class="value" style="color:var(--win)">${fmt(resultadoSeGanhar)}</span>
+        </div>
+        <div class="net">
+          <span style="font-size:11.5px;color:var(--muted)">Se perder, próximo ciclo com</span>
+          <span class="value" style="color:var(--loss)">${fmt(resultadoSePerder)}</span>
+        </div>
+      </div>`;
+    acumulado -= entrada; // perda acumulada se este ciclo falhar, alimenta o próximo
+  }
+  document.getElementById('g-ciclos').innerHTML = html;
+
+  garantirSessao();
+  DATA.settings.gerenciamento.soros = {stop, payout: parseFloat(document.getElementById('g-payout').value)||0};
+  if(resetarSessaoTb){
+    DATA.sessao.soros = {etapa:'1a', valor: stop/3};
+  }
+  saveData();
+  if(document.getElementById('o-gerenciamento').value==='soros') preencherSugestao();
+}
+
+// ---------- avaliação de meta/stop por gerenciamento (operações de hoje) ----------
+function statusSoros(ops){
+  if(ops.length===0) return null;
+  const last = ops[ops.length-1];
+  if(last.resultado==='Win' && String(last.ciclo).endsWith('b')){
+    return {tipo:'meta', msg:`Meta batida no Ciclo ${last.ciclo[0]} do Soros — ganhou a entrada + soros.`};
+  }
+  if(last.resultado==='Loss' && last.ciclo==='3a'){
+    return {tipo:'stop', msg:'Stop atingido no Soros — perdeu a entrada dos 3 ciclos hoje.'};
+  }
+  return null;
+}
+function status2x1(ops){
+  if(ops.length<2) return null;
+  const ultimas2 = ops.slice(-2);
+  const wins = ultimas2.filter(o=>o.resultado==='Win').length;
+  const losses = ultimas2.filter(o=>o.resultado==='Loss').length;
+  if(wins===2) return {tipo:'meta', msg:'Meta batida no 2x1 — 2 wins seguidos.'};
+  if(losses===2) return {tipo:'stop', msg:'Stop atingido no 2x1 — 2 losses seguidos.'};
+  return null;
+}
+function status3x1(ops){
+  if(ops.length===0) return null;
+  let wins=0, losses=0;
+  for(const o of ops){
+    if(o.resultado==='Win') wins++; else losses++;
+    if(wins>=2) return {tipo:'meta', msg:'Meta batida no 3x1 — 2 wins alcançados.'};
+    if(losses>=2) return {tipo:'stop', msg:'Stop atingido no 3x1 — 2 losses acumulados.'};
+  }
+  return null;
+}
+function statusPersonalizado(ops, cfg){
+  if(ops.length===0 || !cfg) return null;
+  let wins=0, losses=0;
+  for(const o of ops){
+    if(o.resultado==='Win') wins++; else losses++;
+    if(wins>=cfg.metaWins) return {tipo:'meta', msg:`Meta batida em ${cfg.nome} — ${cfg.metaWins} wins alcançados.`};
+    if(losses>=cfg.stopLosses) return {tipo:'stop', msg:`Stop atingido em ${cfg.nome} — ${cfg.stopLosses} losses acumulados.`};
+  }
+  return null;
+}
+
+// marca automaticamente no calendário os dias em que uma meta ou stop foi detectado,
+// sem sobrescrever dias que o usuário editou manualmente
+function autoMarcarTodosDias(){
+  garantirSessao();
+  const cfgPersonalizado = DATA.settings.gerenciamento.personalizado;
+  const porData = {};
+  DATA.operacoes.forEach(o=>{ (porData[o.data] = porData[o.data]||[]).push(o); });
+  let mudou = false;
+  Object.keys(porData).forEach(data=>{
+    const ops = porData[data].slice().sort((a,b)=>(a.hora||'').localeCompare(b.hora||'') || a.id-b.id);
+    const lista = [
+      statusSoros(ops.filter(o=>o.gerenciamento==='soros' || !o.gerenciamento)),
+      status2x1(ops.filter(o=>o.gerenciamento==='2x1')),
+      status3x1(ops.filter(o=>o.gerenciamento==='3x1')),
+      statusPersonalizado(ops.filter(o=>o.gerenciamento==='personalizado'), cfgPersonalizado),
+    ].filter(Boolean);
+    if(lista.length===0) return;
+    const status = lista.some(s=>s.tipo==='stop') ? 'stop' : 'meta';
+    const atual = DATA.calendario[data] || {};
+    if(!atual.status || atual.auto){
+      if(atual.status!==status || !atual.auto){
+        DATA.calendario[data] = {...atual, status, auto:true};
+        mudou = true;
+      }
+    }
+  });
+  if(mudou) saveData();
+}
+
+function mostrarMetodo(m){
+  document.querySelectorAll('.g-metodo-btn').forEach(b=>b.classList.toggle('active', b.dataset.metodo===m));
+  document.getElementById('metodo-soros').style.display = m==='soros'?'block':'none';
+  document.getElementById('metodo-2x1').style.display = m==='2x1'?'block':'none';
+  document.getElementById('metodo-3x1').style.display = m==='3x1'?'block':'none';
+  document.getElementById('metodo-personalizado').style.display = m==='personalizado'?'block':'none';
+  document.getElementById('metodo-juros').style.display = m==='juros'?'block':'none';
+}
+
+// ---------- calculadora 2x1 ----------
+function calcular2x1(resetarSessaoTb=true){
+  const entrada = parseFloat(document.getElementById('g2-entrada').value)||0;
+  const payout = (parseFloat(document.getElementById('g2-payout').value)||0)/100;
+  const lucroPorWin = entrada*payout;
+  const meta = lucroPorWin*2;
+  const stop = entrada*2;
+  document.getElementById('g2-resultado').innerHTML = `
+    <div class="cycle-card">
+      <div class="num">Meta — 2 wins</div>
+      <div class="row"><span>Entrada 1</span><b>${fmt(entrada)}</b></div>
+      <div class="row"><span>Entrada 2</span><b>${fmt(entrada)}</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Lucro se ganhar as 2</span>
+        <span class="value" style="color:var(--win)">+${fmt(meta)}</span>
+      </div>
+    </div>
+    <div class="cycle-card">
+      <div class="num">Stop — 2 losses</div>
+      <div class="row"><span>Entrada 1</span><b>${fmt(entrada)}</b></div>
+      <div class="row"><span>Entrada 2</span><b>${fmt(entrada)}</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Perda se perder as 2</span>
+        <span class="value" style="color:var(--loss)">-${fmt(stop)}</span>
+      </div>
+    </div>`;
+
+  garantirSessao();
+  DATA.settings.gerenciamento['2x1'] = {entrada, payout: parseFloat(document.getElementById('g2-payout').value)||0};
+  if(resetarSessaoTb){
+    DATA.sessao['2x1'] = {etapa:'1', valor: entrada};
+  }
+  saveData();
+  if(document.getElementById('o-gerenciamento').value==='2x1') preencherSugestao();
+}
+
+// ---------- calculadora 3x1 ----------
+function calcular3x1(resetarSessaoTb=true){
+  const entrada = parseFloat(document.getElementById('g3-entrada').value)||0;
+  const payout = (parseFloat(document.getElementById('g3-payout').value)||0)/100;
+  const lucroPorWin = entrada*payout;
+  const metaRapida = lucroPorWin*2;              // WW nas 2 primeiras
+  const metaTardia = lucroPorWin*2 - entrada;     // 2 wins + 1 loss nas 3 entradas
+  const stop = entrada*2 - lucroPorWin;           // 2 losses + 1 win nas 3 entradas (pior caso de stop)
+  const stopRapido = entrada*2;                   // LL nas 2 primeiras
+  document.getElementById('g3-resultado').innerHTML = `
+    <div class="cycle-card">
+      <div class="num">Meta rápida — Win, Win</div>
+      <div class="row"><span>Usa</span><b>2 entradas</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Lucro</span>
+        <span class="value" style="color:var(--win)">+${fmt(metaRapida)}</span>
+      </div>
+    </div>
+    <div class="cycle-card">
+      <div class="num">Meta tardia — 1 loss + 2 wins</div>
+      <div class="row"><span>Usa</span><b>3 entradas</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Lucro líquido</span>
+        <span class="value" style="color:var(--win)">+${fmt(metaTardia)}</span>
+      </div>
+    </div>
+    <div class="cycle-card">
+      <div class="num">Stop rápido — Loss, Loss</div>
+      <div class="row"><span>Usa</span><b>2 entradas</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Perda</span>
+        <span class="value" style="color:var(--loss)">-${fmt(stopRapido)}</span>
+      </div>
+    </div>
+    <div class="cycle-card">
+      <div class="num">Stop tardio — 1 win + 2 losses</div>
+      <div class="row"><span>Usa</span><b>3 entradas</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Perda líquida</span>
+        <span class="value" style="color:var(--loss)">-${fmt(stop)}</span>
+      </div>
+    </div>`;
+
+  garantirSessao();
+  DATA.settings.gerenciamento['3x1'] = {entrada, payout: parseFloat(document.getElementById('g3-payout').value)||0};
+  if(resetarSessaoTb){
+    DATA.sessao['3x1'] = {etapa:'1', valor: entrada, wins:0, losses:0};
+  }
+  saveData();
+  if(document.getElementById('o-gerenciamento').value==='3x1') preencherSugestao();
+}
+
+// ---------- calculadora personalizada ----------
+function calcularPersonalizado(resetarSessaoTb=true){
+  const nome = document.getElementById('gp-nome').value.trim() || 'Meu gerenciamento';
+  const entrada = parseFloat(document.getElementById('gp-entrada').value)||0;
+  const payout = parseFloat(document.getElementById('gp-payout').value)||0;
+  const metaWins = Math.max(1, parseInt(document.getElementById('gp-meta').value)||1);
+  const stopLosses = Math.max(1, parseInt(document.getElementById('gp-stop').value)||1);
+  const reinvestir = document.getElementById('gp-reinvestir').value==='sim';
+  const maxEntradas = metaWins + stopLosses - 1;
+
+  let valorAtual = entrada, lucroMeta = 0;
+  for(let i=0;i<metaWins;i++){
+    const ganho = valorAtual*(payout/100);
+    lucroMeta += ganho;
+    valorAtual = reinvestir ? valorAtual+ganho : entrada;
+  }
+  const perdaStop = entrada*stopLosses;
+
+  document.getElementById('gp-resultado').innerHTML = `
+    <div class="cycle-card">
+      <div class="num">Meta — ${metaWins} win${metaWins>1?'s':''} seguido${metaWins>1?'s':''}</div>
+      <div class="row"><span>Entrada base</span><b>${fmt(entrada)}</b></div>
+      <div class="row"><span>Reinveste lucro?</span><b>${reinvestir?'Sim (soros)':'Não'}</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Lucro se bater a meta</span>
+        <span class="value" style="color:var(--win)">+${fmt(lucroMeta)}</span>
+      </div>
+    </div>
+    <div class="cycle-card">
+      <div class="num">Stop — ${stopLosses} loss${stopLosses>1?'es':''} seguido${stopLosses>1?'s':''}</div>
+      <div class="row"><span>Máximo de entradas</span><b>${maxEntradas}</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Perda se bater o stop</span>
+        <span class="value" style="color:var(--loss)">-${fmt(perdaStop)}</span>
+      </div>
+    </div>`;
+
+  garantirSessao();
+  DATA.settings.gerenciamento.personalizado = {nome, entrada, payout, metaWins, stopLosses, reinvestir};
+  if(resetarSessaoTb){
+    DATA.sessao.personalizado = {etapa:'1', valor: entrada, wins:0, losses:0};
+  }
+  saveData();
+  document.getElementById('o-personalizado-label').textContent = 'Personalizado — ' + nome;
+  if(document.getElementById('o-gerenciamento').value==='personalizado'){
+    atualizarEtapas();
+  }
+}
+
+// ---------- simulador de juros compostos ----------
+function moedaPadrao(){
+  const depositos = DATA.caixa.filter(c=>c.tipo==='deposito').slice().sort((a,b)=>b.id-a.id);
+  return (depositos[0] && depositos[0].moeda) || 'USD';
+}
+const MOEDA_NOME = { USD:'Dólar (USD)', BRL:'Real (BRL)', EUR:'Euro (EUR)', KWD:'Dinar kuwaitiano (KWD)' };
+
+function calcularJuros(){
+  const bancaInicial = parseFloat(document.getElementById('jc-banca').value)||0;
+  const perc = (parseFloat(document.getElementById('jc-percentual').value)||0)/100;
+  const dias = Math.max(1, parseInt(document.getElementById('jc-dias').value)||1);
+  const moeda = moedaPadrao();
+  const f = v => fmtMoeda(v, moeda);
+
+  let banca = bancaInicial;
+  const linhas = [];
+  for(let d=1; d<=dias; d++){
+    const meta = banca*perc;
+    const novaBanca = banca + meta;
+    linhas.push({dia:d, bancaAnterior:banca, meta, bancaFinal:novaBanca});
+    banca = novaBanca;
+  }
+  const lucroTotal = banca - bancaInicial;
+  const crescimento = bancaInicial>0 ? (lucroTotal/bancaInicial*100) : 0;
+
+  document.getElementById('jc-moeda-tag').textContent = MOEDA_NOME[moeda] || moeda;
+  document.getElementById('jc-resumo').innerHTML = `
+    <div class="card">
+      <div class="label">Banca final</div>
+      <div class="value gold">${f(banca)}</div>
+    </div>
+    <div class="card">
+      <div class="label">Lucro total</div>
+      <div class="value win">+${f(lucroTotal)}</div>
+    </div>
+    <div class="card">
+      <div class="label">Crescimento</div>
+      <div class="value">+${crescimento.toFixed(1)}%</div>
+    </div>`;
+
+  document.getElementById('jc-tabela').innerHTML = `
+    <thead><tr><th>Dia</th><th>Banca inicial</th><th>Meta do dia</th><th>Banca final</th></tr></thead>
+    <tbody>${linhas.map(l=>`
+      <tr>
+        <td>${l.dia}</td>
+        <td>${f(l.bancaAnterior)}</td>
+        <td style="color:var(--win)">+${f(l.meta)}</td>
+        <td><b>${f(l.bancaFinal)}</b></td>
+      </tr>`).join('')}</tbody>`;
+}
+
+// ---------- meta de juros compostos com acompanhamento diário (✅/❌) ----------
+function criarMetaJuros(){
+  const bancaInicial = parseFloat(document.getElementById('mj-banca').value)||0;
+  const moeda = document.getElementById('mj-moeda').value;
+  const percentual = parseFloat(document.getElementById('mj-percentual').value)||0;
+  const dias = Math.max(1, parseInt(document.getElementById('mj-dias').value)||1);
+  if(bancaInicial<=0){ alert('Informe a banca inicial.'); return; }
+  const historicoExistente = (DATA.metaJuros && DATA.metaJuros.historico) || {};
+  DATA.metaJuros = { bancaInicial, moeda, percentual, dias, historico: historicoExistente };
+  saveData();
+  renderMetaJuros();
+}
+function marcarDiaMeta(dia, status){
+  if(!DATA.metaJuros) return;
+  DATA.metaJuros.historico[dia] = (DATA.metaJuros.historico[dia]===status) ? null : status;
+  saveData();
+  renderMetaJuros();
+}
+// apaga a meta atual por completo e mostra o formulário em branco, pra montar uma meta totalmente nova
+function novaMetaJuros(){
+  DATA.metaJuros = null;
+  saveData();
+  document.getElementById('mj-banca').value = 100;
+  document.getElementById('mj-moeda').value = 'USD';
+  document.getElementById('mj-percentual').value = 10;
+  document.getElementById('mj-dias').value = 7;
+  renderMetaJuros();
+}
+// reabre o formulário preenchido com os valores atuais, pra ajustar banca/%/dias sem perder o progresso já marcado
+function ajustarMetaJuros(){
+  if(!DATA.metaJuros) return;
+  document.getElementById('mj-banca').value = DATA.metaJuros.bancaInicial;
+  document.getElementById('mj-moeda').value = DATA.metaJuros.moeda || 'USD';
+  document.getElementById('mj-percentual').value = DATA.metaJuros.percentual;
+  document.getElementById('mj-dias').value = DATA.metaJuros.dias;
+  document.getElementById('meta-config-form').style.display = 'block';
+  document.getElementById('meta-juros-conteudo').style.display = 'none';
+}
+// mantém banca/%/dias, mas zera os ✅/❌ marcados pra recomeçar o acompanhamento do zero
+function reiniciarMetaJuros(){
+  if(!DATA.metaJuros) return;
+  DATA.metaJuros.historico = {};
+  saveData();
+  renderMetaJuros();
+}
+function renderMetaJuros(){
+  const formDiv = document.getElementById('meta-config-form');
+  const conteudoDiv = document.getElementById('meta-juros-conteudo');
+  if(!DATA.metaJuros){
+    formDiv.style.display = 'block';
+    conteudoDiv.innerHTML = '';
+    return;
+  }
+  formDiv.style.display = 'none';
+  if(!DATA.metaJuros.historico) DATA.metaJuros.historico = {};
+
+  try{
+
+  const { bancaInicial, percentual, dias, historico } = DATA.metaJuros;
+  const moeda = DATA.metaJuros.moeda || moedaPadrao();
+  const f = v => fmtMoeda(v, moeda);
+  const perc = percentual/100;
+
+  let banca = bancaInicial;
+  let bancaRealCongelada = null; // trava no primeiro dia ainda não marcado — dias futuros não contam como "ganhos" na banca real
+  let diasOk = 0, diasFail = 0, diasPendentes = 0;
+  let linhasHtml = '';
+  for(let d=1; d<=dias; d++){
+    const bancaInicioDia = banca;
+    const metaDoDia = bancaInicioDia*perc;
+    const bancaSeBater = bancaInicioDia + metaDoDia;
+    const bancaSeNaoBater = bancaInicioDia - metaDoDia;
+    const status = historico[d] || null;
+
+    if(status==='ok'){ diasOk++; banca = bancaSeBater; }
+    else if(status==='fail'){ diasFail++; banca = bancaSeNaoBater; }
+    else {
+      diasPendentes++;
+      if(bancaRealCongelada===null) bancaRealCongelada = bancaInicioDia;
+      banca = bancaSeBater; // segue a projeção teórica só pra mostrar as linhas dos próximos dias
+    }
+
+    const claseLinha = status==='ok' ? 'ok' : status==='fail' ? 'fail' : 'pendente';
+    linhasHtml += `
+      <div class="meta-dia-row ${claseLinha}">
+        <div class="meta-dia-num">${status==='ok'?'✅':status==='fail'?'❌':d}</div>
+        <div class="meta-dia-info">
+          <div style="font-size:12.5px;font-weight:600;">Dia ${d}</div>
+          <div class="valores">Início <b>${f(bancaInicioDia)}</b> · Meta <b>±${f(metaDoDia)}</b> · Se bater <b>${f(bancaSeBater)}</b> · Se não bater <b>${f(bancaSeNaoBater)}</b></div>
+        </div>
+        <div class="meta-dia-acoes">
+          <button type="button" class="${status==='ok'?'marcado':''}" onclick="marcarDiaMeta(${d},'ok')" title="Bateu a meta">✅</button>
+          <button type="button" class="${status==='fail'?'marcado':''}" onclick="marcarDiaMeta(${d},'fail')" title="Não bateu">❌</button>
+        </div>
+      </div>`;
+  }
+
+  const bancaAlvoTeorica = bancaInicial * Math.pow(1+perc, dias);
+  const bancaAtualReal = bancaRealCongelada!==null ? bancaRealCongelada : banca;
+
+  conteudoDiv.innerHTML = `
+    <div class="meta-resumo">
+      <div>Moeda<b>${MOEDA_NOME[moeda] || moeda}</b></div>
+      <div>Banca inicial<b>${f(bancaInicial)}</b></div>
+      <div>Meta diária<b>${percentual}%</b></div>
+      <div>Progresso<b>${diasOk+diasFail} de ${dias} dias</b></div>
+      <div>✅ Bateram<b style="color:var(--win)">${diasOk}</b></div>
+      <div>❌ Não bateram<b style="color:var(--loss)">${diasFail}</b></div>
+      <div>Banca alvo teórica<b style="color:var(--gold)">${f(bancaAlvoTeorica)}</b></div>
+      <div>Banca real até agora<b style="color:${bancaAtualReal>=bancaInicial?'var(--win)':'var(--loss)'}">${f(bancaAtualReal)}</b></div>
+    </div>
+    ${linhasHtml}
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn secondary" style="flex:1;" onclick="ajustarMetaJuros()">✎ Ajustar meta</button>
+      <button class="btn secondary" style="flex:1;" onclick="reiniciarMetaJuros()">↺ Reiniciar progresso</button>
+    </div>
+    <button class="btn secondary" style="width:100%;margin-top:8px;" onclick="novaMetaJuros()">🆕 Criar nova meta do zero</button>
+  `;
+  }catch(err){
+    console.error('Erro ao exibir a meta de juros compostos:', err);
+    conteudoDiv.innerHTML = `<div class="empty">Algo deu errado ao mostrar essa meta. Toque em "Criar nova meta do zero" pra recomeçar.</div>
+      <button class="btn secondary" style="width:100%;margin-top:10px;" onclick="novaMetaJuros()">🆕 Criar nova meta do zero</button>`;
+  }
+}
+
+// ---------- calendário (metas, stops e emoções) ----------
+let calRef = new Date();
+let calDiaSelecionado = null;
+let calStatusAtual = undefined;
+let calEmocaoAtual = null;
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function renderCalendario(){
+  const ano = calRef.getFullYear(), mes = calRef.getMonth();
+  const nomeMes = calRef.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
+  document.getElementById('cal-month').textContent = nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1);
+
+  const dows = ['D','S','T','Q','Q','S','S'];
+  document.getElementById('cal-dow').innerHTML = dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+
+  const primeiroDia = new Date(ano, mes, 1).getDay();
+  const totalDias = new Date(ano, mes+1, 0).getDate();
+  let html = '';
+  for(let i=0;i<primeiroDia;i++) html += `<div class="cal-day empty"></div>`;
+  for(let d=1; d<=totalDias; d++){
+    const dataStr = `${ano}-${pad2(mes+1)}-${pad2(d)}`;
+    const entry = DATA.calendario[dataStr];
+    const cls = entry && entry.status ? entry.status : '';
+    const emo = entry && entry.emocao ? emojiDe(entry.emocao) : '';
+    const sel = dataStr===calDiaSelecionado ? 'selected' : '';
+    html += `<div class="cal-day ${cls} ${sel}" onclick="selecionarDia('${dataStr}')">${d}${emo?`<span class="emo">${emo}</span>`:''}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+function emojiDe(key){
+  const map = {focado:'🧐', tranquilo:'🙂', nervoso:'😬', 'com raiva':'😡', 'de boa':'😎', cansado:'😴'};
+  return map[key]||'';
+}
+function mudarMes(delta){
+  calRef.setMonth(calRef.getMonth()+delta);
+  renderCalendario();
+}
+function selecionarDia(dataStr){
+  calDiaSelecionado = dataStr;
+  const entry = DATA.calendario[dataStr] || {};
+  calStatusAtual = entry.status || null;
+  calEmocaoAtual = entry.emocao || null;
+  document.getElementById('cal-nota').value = entry.nota || '';
+  const d = new Date(dataStr+'T00:00:00');
+  document.getElementById('cal-form-title').textContent = d.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+  document.querySelectorAll('.emo-btn').forEach(b=>b.classList.toggle('active', b.dataset.emo===calEmocaoAtual));
+  document.getElementById('cal-form').classList.add('show');
+  renderCalendario();
+}
+function setDiaStatus(status){
+  calStatusAtual = status;
+}
+document.querySelectorAll('.emo-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    calEmocaoAtual = calEmocaoAtual===btn.dataset.emo ? null : btn.dataset.emo;
+    document.querySelectorAll('.emo-btn').forEach(b=>b.classList.toggle('active', b.dataset.emo===calEmocaoAtual));
+  });
+});
+async function salvarDia(){
+  if(!calDiaSelecionado) return;
+  const nota = document.getElementById('cal-nota').value.trim();
+  if(!calStatusAtual && !calEmocaoAtual && !nota){
+    delete DATA.calendario[calDiaSelecionado];
+  }else{
+    DATA.calendario[calDiaSelecionado] = { status: calStatusAtual, emocao: calEmocaoAtual, nota };
+  }
+  await saveData();
+  renderCalendario();
+}
+
+// ---------- chart ----------
+let chartPoints = [];
+// ---------- gráfico de pizza (distribuição de operações) ----------
+const PALETA_PIZZA = ['#D4A73D','#3DD68C','#4C8BF5','#E5484D','#9B6BF2','#F2669B','#2FBF9E','#F2A649','#8B95A1'];
+function drawPieChart(canvasId, legendaId, dados){
+  const canvas = document.getElementById(canvasId);
+  const legendaDiv = document.getElementById(legendaId);
+  const dpr = window.devicePixelRatio||1;
+  const tam = canvas.clientWidth || 200;
+  canvas.width = tam*dpr; canvas.height = tam*dpr;
+  canvas.style.height = tam+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,tam,tam);
+
+  if(!dados.length){
+    ctx.fillStyle = '#8B95A1';
+    ctx.font = '12px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sem dados ainda', tam/2, tam/2);
+    legendaDiv.innerHTML = '';
+    return;
+  }
+
+  const total = dados.reduce((s,d)=>s+d.valor,0);
+  const raio = tam/2 - 4;
+  const cx = tam/2, cy = tam/2;
+  let anguloAtual = -Math.PI/2;
+
+  dados.forEach((d,i)=>{
+    const fatia = (d.valor/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,raio,anguloAtual,anguloAtual+fatia);
+    ctx.closePath();
+    ctx.fillStyle = PALETA_PIZZA[i%PALETA_PIZZA.length];
+    ctx.fill();
+    anguloAtual += fatia;
+  });
+  // buraco no meio (donut)
+  ctx.beginPath();
+  ctx.arc(cx,cy,raio*0.55,0,Math.PI*2);
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#161C26';
+  ctx.fill();
+
+  legendaDiv.innerHTML = dados.map((d,i)=>{
+    const pct = ((d.valor/total)*100).toFixed(0);
+    return `<div class="pizza-legenda-item"><span class="dotp" style="background:${PALETA_PIZZA[i%PALETA_PIZZA.length]}"></span>${d.label}<b>${pct}%</b></div>`;
+  }).join('');
+}
+
+function drawChart(){
+  const canvas = document.getElementById('chart');
+  const dpr = window.devicePixelRatio||1;
+  const w = canvas.clientWidth, h = canvas.clientHeight || 190;
+  canvas.height = 190; canvas.style.height = '190px';
+  canvas.width = w*dpr; canvas.height = 190*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,190);
+  const hh = 190;
+
+  const ops = [...DATA.operacoes].reverse();
+  chartPoints = [];
+  if(ops.length===0){
+    ctx.fillStyle = '#8B95A1';
+    ctx.font = '12px Inter';
+    ctx.fillText('Sem operações registradas ainda.', 10, hh/2);
+    return;
+  }
+  let acc = 0;
+  const points = ops.map(o=>{ acc += o.lucro; return {v:acc, data:o.data, hora:o.hora}; });
+  const vals = points.map(p=>p.v);
+  const min = Math.min(0, ...vals), max = Math.max(0, ...vals);
+  const range = (max-min)||1;
+  const padX = 10, padT = 14, padB = 26;
+  const stepX = points.length>1 ? (w-padX*2)/(points.length-1) : 0;
+  const yOf = v => padT + (max-v)/range*(hh-padT-padB);
+
+  // linhas de grade horizontais
+  ctx.strokeStyle = '#1D2430';
+  ctx.lineWidth = 1;
+  ctx.font = '10px "IBM Plex Mono"';
+  ctx.fillStyle = '#8B95A1';
+  const gridSteps = 4;
+  for(let i=0;i<=gridSteps;i++){
+    const v = max - (range/gridSteps)*i;
+    const y = yOf(v);
+    ctx.beginPath(); ctx.moveTo(padX,y); ctx.lineTo(w-padX,y); ctx.stroke();
+    ctx.fillText(fmt(v), padX, y-3);
+  }
+
+  // linha do zero em destaque
+  if(min<0 && max>0){
+    ctx.strokeStyle = '#3A4354';
+    ctx.beginPath(); ctx.moveTo(padX, yOf(0)); ctx.lineTo(w-padX, yOf(0)); ctx.stroke();
+  }
+
+  // área preenchida (gradiente) — usa a cor de destaque atual (pode ter sido personalizada)
+  const corOuro = getComputedStyle(document.documentElement).getPropertyValue('--gold').trim() || '#D4A73D';
+  const ouroRgb = getComputedStyle(document.documentElement).getPropertyValue('--gold-rgb').trim() || '212,167,61';
+  const grad = ctx.createLinearGradient(0,padT,0,hh-padB);
+  grad.addColorStop(0,`rgba(${ouroRgb},0.28)`);
+  grad.addColorStop(1,`rgba(${ouroRgb},0)`);
+  ctx.beginPath();
+  points.forEach((p,i)=>{
+    const x = padX + i*stepX, y = yOf(p.v);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    chartPoints.push({x,y,...p});
+  });
+  ctx.lineTo(padX+(points.length-1)*stepX, yOf(min));
+  ctx.lineTo(padX, yOf(min));
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // linha principal
+  ctx.beginPath();
+  points.forEach((p,i)=>{
+    const x = padX + i*stepX, y = yOf(p.v);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = corOuro;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // eixo de datas (início, meio, fim)
+  ctx.fillStyle = '#8B95A1';
+  ctx.font = '10px "IBM Plex Mono"';
+  const idxs = points.length>2 ? [0, Math.floor((points.length-1)/2), points.length-1] : points.map((_,i)=>i);
+  idxs.forEach(i=>{
+    const x = padX + i*stepX;
+    const label = points[i].data.slice(5).split('-').reverse().join('/');
+    ctx.textAlign = i===0?'left':(i===points.length-1?'right':'center');
+    ctx.fillText(label, x, hh-8);
+  });
+  ctx.textAlign = 'left';
+
+  const last = points[points.length-1];
+  ctx.fillStyle = last.v>=0 ? '#3DD68C' : '#E5484D';
+  const lx = padX+(points.length-1)*stepX, ly = yOf(last.v);
+  ctx.beginPath(); ctx.arc(lx,ly,3.5,0,Math.PI*2); ctx.fill();
+}
+
+const chartCanvas = document.getElementById('chart');
+const chartTip = document.getElementById('chart-tip');
+chartCanvas.addEventListener('mousemove', (e)=>{
+  if(chartPoints.length===0) return;
+  const rect = chartCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  let nearest = chartPoints[0], dist = Infinity;
+  chartPoints.forEach(p=>{
+    const d = Math.abs(p.x-mx);
+    if(d<dist){ dist=d; nearest=p; }
+  });
+  chartTip.style.left = nearest.x+'px';
+  chartTip.style.top = nearest.y+'px';
+  chartTip.style.display = 'block';
+  const dataLabel = nearest.data.slice(5).split('-').reverse().join('/');
+  chartTip.innerHTML = `<div class="d">${dataLabel}${nearest.hora?' · '+nearest.hora:''}</div>${fmt(nearest.v)}`;
+});
+chartCanvas.addEventListener('mouseleave', ()=>{ chartTip.style.display='none'; });
+chartCanvas.addEventListener('touchmove', (e)=>{
+  if(chartPoints.length===0) return;
+  const rect = chartCanvas.getBoundingClientRect();
+  const mx = e.touches[0].clientX - rect.left;
+  let nearest = chartPoints[0], dist = Infinity;
+  chartPoints.forEach(p=>{
+    const d = Math.abs(p.x-mx);
+    if(d<dist){ dist=d; nearest=p; }
+  });
+  chartTip.style.left = nearest.x+'px';
+  chartTip.style.top = nearest.y+'px';
+  chartTip.style.display = 'block';
+  const dataLabel = nearest.data.slice(5).split('-').reverse().join('/');
+  chartTip.innerHTML = `<div class="d">${dataLabel}${nearest.hora?' · '+nearest.hora:''}</div>${fmt(nearest.v)}`;
+}, {passive:true});
+
+// ---------- render ----------
+function render(){
+  autoMarcarTodosDias();
+  const totalDep = DATA.caixa.filter(c=>c.tipo==='deposito').reduce((s,c)=>s+c.valor,0);
+  const totalSaq = DATA.caixa.filter(c=>c.tipo==='saque').reduce((s,c)=>s+c.valor,0);
+  const resultadoOps = DATA.operacoes.reduce((s,o)=>s+o.lucro,0);
+  const saldo = totalDep - totalSaq + resultadoOps;
+  const wins = DATA.operacoes.filter(o=>o.resultado==='Win').length;
+  const losses = DATA.operacoes.filter(o=>o.resultado==='Loss').length;
+  const winrate = (wins+losses)>0 ? (wins/(wins+losses)*100) : 0;
+
+  document.getElementById('d-saldo').textContent = fmt(saldo);
+  document.getElementById('d-dep').textContent = fmt(totalDep);
+  document.getElementById('d-saq').textContent = fmt(totalSaq);
+  const dRes = document.getElementById('d-resultado');
+  dRes.textContent = fmt(resultadoOps);
+  dRes.className = 'value ' + (resultadoOps>0?'win':resultadoOps<0?'loss':'');
+  document.getElementById('d-winrate').textContent = winrate.toFixed(0)+'%';
+  document.getElementById('d-winsub').textContent = `${wins} win · ${losses} loss`;
+
+  // sequência atual (streak) de wins ou losses
+  const streakEl = document.getElementById('d-streak');
+  if(DATA.operacoes.length===0){
+    streakEl.textContent = '—';
+    streakEl.className = 'value';
+  }else{
+    const tipoStreak = DATA.operacoes[0].resultado;
+    let count = 0;
+    for(const o of DATA.operacoes){
+      if(o.resultado===tipoStreak) count++; else break;
+    }
+    streakEl.textContent = `${count} ${tipoStreak==='Win'?'win':'loss'}${count>1?'s':''}`;
+    streakEl.className = 'value ' + (tipoStreak==='Win'?'win':'loss');
+  }
+
+  // resultado de hoje + alerta de limite de perda
+  const hoje = todayStr();
+  const resultadoHoje = DATA.operacoes.filter(o=>o.data===hoje).reduce((s,o)=>s+o.lucro,0);
+  const limite = DATA.settings.limiteDiario || 0;
+  const tag = document.getElementById('d-hoje-tag');
+  tag.textContent = resultadoHoje===0 ? 'sem operações hoje' : fmt(resultadoHoje);
+  tag.style.color = resultadoHoje>0 ? 'var(--win)' : resultadoHoje<0 ? 'var(--loss)' : 'var(--gold)';
+  const banner = document.getElementById('alert-limite');
+  if(limite>0 && resultadoHoje<=-limite){
+    banner.classList.add('show');
+    document.getElementById('alert-limite-txt').textContent = `perda de ${fmt(Math.abs(resultadoHoje))} hoje (limite: ${fmt(limite)}). Considere parar por hoje.`;
+  }else{
+    banner.classList.remove('show');
+  }
+
+  // alertas de meta/stop por tipo de gerenciamento (baseado nas operações de hoje)
+  const opsHoje = DATA.operacoes.filter(o=>o.data===hoje).slice()
+    .sort((a,b)=>(a.hora||'').localeCompare(b.hora||'') || a.id-b.id);
+  const statusList = [
+    statusSoros(opsHoje.filter(o=>o.gerenciamento==='soros' || !o.gerenciamento)),
+    status2x1(opsHoje.filter(o=>o.gerenciamento==='2x1')),
+    status3x1(opsHoje.filter(o=>o.gerenciamento==='3x1')),
+    statusPersonalizado(opsHoje.filter(o=>o.gerenciamento==='personalizado'), DATA.settings.gerenciamento.personalizado),
+  ].filter(Boolean);
+  const alertasHtml = statusList.map(s=>`
+    <div class="alert-banner show ${s.tipo}">
+      <span class="icon">${s.tipo==='meta'?'🎯':'🛑'}</span>
+      <span class="txt">${s.msg}</span>
+    </div>`).join('');
+  document.getElementById('alertas-metodos-dashboard').innerHTML = alertasHtml;
+
+  // ---------- revisão do dia ----------
+  const winsHoje = opsHoje.filter(o=>o.resultado==='Win').length;
+  const lossesHoje = opsHoje.filter(o=>o.resultado==='Loss').length;
+  const resultadoHojeRev = opsHoje.reduce((s,o)=>s+o.lucro,0);
+  const entradaCal = DATA.calendario[hoje] || {};
+  const METODO_LABEL_REV = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:(DATA.settings.gerenciamento.personalizado&&DATA.settings.gerenciamento.personalizado.nome)||'Personalizado'};
+
+  let statusRowHtml = '';
+  ['soros','2x1','3x1','personalizado'].forEach(tipo=>{
+    const opsDoTipo = opsHoje.filter(o=>o.gerenciamento===tipo || (tipo==='soros' && !o.gerenciamento));
+    if(opsDoTipo.length===0) return;
+    const s = statusList.find(st=>st && st.msg.toLowerCase().includes(METODO_LABEL_REV[tipo].toLowerCase()));
+    const label = METODO_LABEL_REV[tipo];
+    const cor = s ? (s.tipo==='meta'?'win':'stop') : null;
+    const texto = s ? (s.tipo==='meta'?'Meta':'Stop') : 'Em andamento';
+    statusRowHtml += `<span class="revisao-status-pill" style="background:${cor==='win'?'var(--win-bg)':cor==='stop'?'var(--loss-bg)':'var(--surface-2)'};color:${cor==='win'?'var(--win)':cor==='stop'?'var(--loss)':'var(--muted)'}">${label}: ${texto}</span>`;
+  });
+
+  const notasHoje = opsHoje.filter(o=>o.nota).map(o=>`
+    <div class="revisao-nota-item"><span class="meta">${o.hora||''} · ${o.par}</span>${o.nota}</div>`).join('');
+
+  document.getElementById('revisao-dia-conteudo').innerHTML = `
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;">
+      <div class="card"><div class="label">Operações hoje</div><div class="value">${opsHoje.length}</div><div class="sub">${winsHoje} win · ${lossesHoje} loss</div></div>
+      <div class="card"><div class="label">Resultado líquido</div><div class="value ${resultadoHojeRev>0?'win':resultadoHojeRev<0?'loss':''}">${fmt(resultadoHojeRev)}</div></div>
+      <div class="card"><div class="label">Sequência atual</div><div class="value">${document.getElementById('d-streak').textContent}</div></div>
+    </div>
+    ${statusRowHtml ? `<div class="revisao-status-row">${statusRowHtml}</div>` : ''}
+    ${entradaCal.emocao || entradaCal.nota ? `
+      <div class="revisao-emocao">
+        <span class="emoji">${emojiDe(entradaCal.emocao)||'📝'}</span>
+        <div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;">${entradaCal.emocao ? (entradaCal.emocao.charAt(0).toUpperCase()+entradaCal.emocao.slice(1)) : 'Sem emoção registrada'}</div>
+          ${entradaCal.nota ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">${entradaCal.nota}</div>` : ''}
+        </div>
+      </div>` : `<div class="sub" style="margin-bottom:12px;">Nenhuma emoção registrada hoje no calendário ainda.</div>`}
+    ${notasHoje ? `<div><div class="resumo-titulo" style="margin-bottom:6px;">Notas das operações de hoje</div>${notasHoje}</div>` : ''}
+  `;
+
+  // aviso de stop em dias consecutivos
+  let diasConsecutivosStop = 0;
+  let cursor = new Date(hoje+'T00:00:00');
+  while(true){
+    const key = cursor.getFullYear()+'-'+pad2(cursor.getMonth()+1)+'-'+pad2(cursor.getDate());
+    const entry = DATA.calendario[key];
+    if(entry && entry.status==='stop'){
+      diasConsecutivosStop++;
+      cursor.setDate(cursor.getDate()-1);
+    } else break;
+  }
+  const stopSeqBanner = document.getElementById('alert-stop-seq');
+  if(diasConsecutivosStop>=2){
+    stopSeqBanner.classList.add('show');
+    document.getElementById('alert-stop-seq-txt').innerHTML = `Stop em <b>${diasConsecutivosStop} dias seguidos</b>. Pode ser um bom momento para pausar e revisar o que está acontecendo.`;
+  }else{
+    stopSeqBanner.classList.remove('show');
+  }
+  document.getElementById('alertas-metodos-ops').innerHTML = alertasHtml;
+
+  // resumo semanal e mensal
+  const hojeD = new Date();
+  const seteDiasAtras = new Date(hojeD); seteDiasAtras.setDate(hojeD.getDate()-6);
+  const inicioMes = new Date(hojeD.getFullYear(), hojeD.getMonth(), 1);
+  function resumoPeriodo(inicio){
+    const ops = DATA.operacoes.filter(o=>{
+      const d = new Date(o.data+'T00:00:00');
+      return d>=inicio && d<=hojeD;
+    });
+    const resultado = ops.reduce((s,o)=>s+o.lucro,0);
+    const w = ops.filter(o=>o.resultado==='Win').length;
+    const l = ops.filter(o=>o.resultado==='Loss').length;
+    const wr = (w+l)>0 ? (w/(w+l)*100) : 0;
+    let diasMeta=0, diasStop=0, diasEmpate=0;
+    Object.keys(DATA.calendario).forEach(data=>{
+      const d = new Date(data+'T00:00:00');
+      if(d>=inicio && d<=hojeD){
+        if(DATA.calendario[data].status==='meta') diasMeta++;
+        if(DATA.calendario[data].status==='stop') diasStop++;
+        if(DATA.calendario[data].status==='empate') diasEmpate++;
+      }
+    });
+    return {resultado, wr, w, l, diasMeta, diasStop, diasEmpate};
+  }
+  const rSemana = resumoPeriodo(seteDiasAtras);
+  const rMes = resumoPeriodo(inicioMes);
+  const setResumo = (prefixo, r)=>{
+    const el = document.getElementById(prefixo+'-resultado');
+    el.textContent = fmt(r.resultado);
+    el.style.color = r.resultado>0?'var(--win)':r.resultado<0?'var(--loss)':'var(--text)';
+    document.getElementById(prefixo+'-wl').innerHTML = `<span style="color:var(--win)">${r.w}</span> / <span style="color:var(--loss)">${r.l}</span>`;
+    document.getElementById(prefixo+'-winrate').textContent = r.wr.toFixed(0)+'%';
+    document.getElementById(prefixo+'-meta').textContent = r.diasMeta;
+    document.getElementById(prefixo+'-empate').textContent = r.diasEmpate;
+    document.getElementById(prefixo+'-stop').textContent = r.diasStop;
+  };
+  setResumo('rs-sem', rSemana);
+  setResumo('rs-mes', rMes);
+
+  // last ops
+  const last = DATA.operacoes.slice(0,6);
+  document.getElementById('d-lastops').innerHTML = last.length ? `
+    <table><thead><tr><th>Data</th><th>Hora</th><th>Par</th><th>Resultado</th><th>Lucro</th></tr></thead>
+    <tbody>${last.map(o=>`
+      <tr>
+        <td>${o.data}</td>
+        <td>${o.hora||'—'}</td>
+        <td>${o.par} <span style="color:var(--muted)">(${o.moeda})</span></td>
+        <td><span class="pill ${o.resultado==='Win'?'win':'loss'}">${o.resultado}</span></td>
+        <td style="color:${o.lucro>=0?'var(--win)':'var(--loss)'}">${fmt(o.lucro)}</td>
+      </tr>`).join('')}</tbody></table>` :
+    `<div class="empty">Nenhuma operação registrada ainda.</div>`;
+
+  // desempenho por par
+  const porPar = {};
+  DATA.operacoes.forEach(o=>{
+    if(!porPar[o.par]) porPar[o.par] = {ops:0, wins:0, losses:0, lucro:0};
+    const p = porPar[o.par];
+    p.ops++;
+    if(o.resultado==='Win') p.wins++; else p.losses++;
+    p.lucro += o.lucro;
+  });
+  const listaPares = Object.keys(porPar).map(par=>{
+    const p = porPar[par];
+    const wr = (p.wins+p.losses)>0 ? p.wins/(p.wins+p.losses)*100 : 0;
+    return {par, ...p, wr};
+  }).sort((a,b)=>b.lucro-a.lucro);
+  document.getElementById('d-por-par').innerHTML = listaPares.length ? `
+    <table><thead><tr><th>Par</th><th>Operações</th><th>Win/Loss</th><th>Acerto</th><th>Resultado</th></tr></thead>
+    <tbody>${listaPares.map(p=>`
+      <tr>
+        <td>${p.par}</td>
+        <td>${p.ops}</td>
+        <td><span style="color:var(--win)">${p.wins}</span> / <span style="color:var(--loss)">${p.losses}</span></td>
+        <td>${p.wr.toFixed(0)}%</td>
+        <td style="color:${p.lucro>=0?'var(--win)':'var(--loss)'}">${fmt(p.lucro)}</td>
+      </tr>`).join('')}</tbody></table>` :
+    `<div class="empty">Nenhuma operação registrada ainda.</div>`;
+
+  // desempenho por horário (bloco do dia)
+  function blocoHorario(hora){
+    if(!hora) return 'Sem horário registrado';
+    const h = parseInt(hora.split(':')[0]);
+    if(h>=0 && h<6) return 'Madrugada (00h–06h)';
+    if(h>=6 && h<12) return 'Manhã (06h–12h)';
+    if(h>=12 && h<18) return 'Tarde (12h–18h)';
+    return 'Noite (18h–24h)';
+  }
+  const ORDEM_BLOCOS = ['Madrugada (00h–06h)','Manhã (06h–12h)','Tarde (12h–18h)','Noite (18h–24h)','Sem horário registrado'];
+  const porHorario = {};
+  DATA.operacoes.forEach(o=>{
+    const bloco = blocoHorario(o.hora);
+    if(!porHorario[bloco]) porHorario[bloco] = {ops:0, wins:0, losses:0, lucro:0};
+    const p = porHorario[bloco];
+    p.ops++;
+    if(o.resultado==='Win') p.wins++; else p.losses++;
+    p.lucro += o.lucro;
+  });
+  const listaHorarios = ORDEM_BLOCOS.filter(b=>porHorario[b]).map(b=>{
+    const p = porHorario[b];
+    const wr = (p.wins+p.losses)>0 ? p.wins/(p.wins+p.losses)*100 : 0;
+    return {bloco:b, ...p, wr};
+  });
+  document.getElementById('d-por-horario').innerHTML = listaHorarios.length ? `
+    <table><thead><tr><th>Período</th><th>Operações</th><th>Win/Loss</th><th>Acerto</th><th>Resultado</th></tr></thead>
+    <tbody>${listaHorarios.map(p=>`
+      <tr>
+        <td>${p.bloco}</td>
+        <td>${p.ops}</td>
+        <td><span style="color:var(--win)">${p.wins}</span> / <span style="color:var(--loss)">${p.losses}</span></td>
+        <td>${p.wr.toFixed(0)}%</td>
+        <td style="color:${p.lucro>=0?'var(--win)':'var(--loss)'}">${fmt(p.lucro)}</td>
+      </tr>`).join('')}</tbody></table>` :
+    `<div class="empty">Nenhuma operação registrada ainda.</div>`;
+
+  // gráficos de pizza: distribuição de operações por par e por método
+  const dadosPizzaPar = Object.keys(porPar)
+    .map(par=>({label:par, valor:porPar[par].ops}))
+    .sort((a,b)=>b.valor-a.valor)
+    .slice(0,8);
+  drawPieChart('pizza-par','legenda-par', dadosPizzaPar);
+
+  const nomePersonalizadoPizza = (DATA.settings.gerenciamento && DATA.settings.gerenciamento.personalizado && DATA.settings.gerenciamento.personalizado.nome) || 'Personalizado';
+  const METODO_LABEL_PIZZA = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:nomePersonalizadoPizza};
+  const porMetodo = {};
+  DATA.operacoes.forEach(o=>{
+    const tipo = o.gerenciamento || 'soros';
+    porMetodo[tipo] = (porMetodo[tipo]||0) + 1;
+  });
+  const dadosPizzaMetodo = Object.keys(porMetodo).map(tipo=>({label:METODO_LABEL_PIZZA[tipo]||tipo, valor:porMetodo[tipo]}));
+  drawPieChart('pizza-metodo','legenda-metodo', dadosPizzaMetodo);
+
+  // caixa table
+  document.getElementById('c-tabela').innerHTML = DATA.caixa.length ? `
+    <table><thead><tr><th>Data</th><th>Tipo</th><th>Moeda</th><th>Valor</th><th>Obs</th><th></th></tr></thead>
+    <tbody>${DATA.caixa.map(c=>`
+      <tr>
+        <td>${c.data}</td>
+        <td><span class="pill ${c.tipo==='deposito'?'dep':'saq'}">${c.tipo==='deposito'?'Depósito':'Saque'}</span></td>
+        <td>${c.moeda||'USD'}</td>
+        <td>${fmtMoeda(c.valor, c.moeda)}</td>
+        <td style="font-family:'Inter',sans-serif;color:var(--muted)">${c.obs||'—'}</td>
+        <td>
+          <button class="del" onclick="editarCaixa(${c.id})" title="Editar">✎</button>
+          <button class="del" onclick="delCaixa(${c.id})" title="Excluir">✕</button>
+        </td>
+      </tr>`).join('')}</tbody></table>` :
+    `<div class="empty">Nenhum lançamento ainda.</div>`;
+
+  // operacoes table (com filtros)
+  const nomePersonalizado = (DATA.settings.gerenciamento && DATA.settings.gerenciamento.personalizado && DATA.settings.gerenciamento.personalizado.nome) || 'Personalizado';
+  const METODO_LABEL = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:nomePersonalizado};
+  const fPar = (document.getElementById('f-par')?.value||'').trim().toLowerCase();
+  const fMoeda = document.getElementById('f-moeda')?.value||'';
+  const fMetodo = document.getElementById('f-metodo')?.value||'';
+  const fResultado = document.getElementById('f-resultado')?.value||'';
+  const opsFiltradas = DATA.operacoes.filter(o=>
+    (!fPar || o.par.toLowerCase().includes(fPar)) &&
+    (!fMoeda || o.moeda===fMoeda) &&
+    (!fMetodo || (o.gerenciamento||'soros')===fMetodo) &&
+    (!fResultado || o.resultado===fResultado)
+  );
+  document.getElementById('o-tabela').innerHTML = opsFiltradas.length ? `
+    <table><thead><tr><th>Data</th><th>Hora</th><th>Par</th><th>Moeda</th><th>Direção</th><th>Método</th><th>Etapa</th><th>Entrada</th><th>Resultado</th><th>Lucro</th><th>Nota</th><th>Print</th><th></th></tr></thead>
+    <tbody>${opsFiltradas.map(o=>`
+      <tr>
+        <td>${o.data}</td>
+        <td>${o.hora||'—'}</td>
+        <td>${o.par}</td>
+        <td>${o.moeda}</td>
+        <td>${o.direcao}</td>
+        <td>${METODO_LABEL[o.gerenciamento]||'Soros'}</td>
+        <td>${o.ciclo}</td>
+        <td>${fmt(o.valor)}</td>
+        <td><span class="pill ${o.resultado==='Win'?'win':'loss'}">${o.resultado}</span></td>
+        <td style="color:${o.lucro>=0?'var(--win)':'var(--loss)'}">${fmt(o.lucro)}</td>
+        <td style="font-family:'Inter',sans-serif;color:var(--muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${(o.nota||'').replace(/"/g,'&quot;')}">${o.nota||'—'}</td>
+        <td>${o.imagem ? `<img class="thumb-tabela" src="${o.imagem}" onclick="abrirLightboxPorId(${o.id})">` : '—'}</td>
+        <td>
+          <button class="del" onclick="editarOperacao(${o.id})" title="Editar">✎</button>
+          <button class="del" onclick="delOperacao(${o.id})" title="Excluir">✕</button>
+        </td>
+      </tr>`).join('')}</tbody></table>` :
+    `<div class="empty">Nenhuma operação encontrada com esses filtros.</div>`;
+
+  drawChart();
+}
+
+function tickClock(){
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleDateString('pt-BR') + ' · ' + d.toLocaleTimeString('pt-BR');
+}
+tickClock();
+setInterval(tickClock, 1000);
+window.addEventListener('resize', drawChart);
+
+calcularCiclos();
+calcular2x1();
+calcular3x1();
+calcularPersonalizado();
+calcularJuros();
+renderMetaJuros();
+testarArmazenamento();
+loadData();
+
+// registra o service worker (só funciona quando hospedado em http/https, não em file://)
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(err=>console.log('Service worker não registrado:', err));
+  });
+}
+</script>
+</body>
+</html>
