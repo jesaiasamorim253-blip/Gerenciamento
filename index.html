@@ -960,7 +960,7 @@
     </div>
   </section>
 
-  <footer>Dados salvos apenas no seu dispositivo, dentro deste artifact.<br>Versão: 18/07/2026 (v5) — aviso quando o navegador não consegue salvar</footer>
+  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 18/07/2026 (v6) — armazenamento persistente + diagnóstico visível</footer>
 </div>
 
 <div class="lightbox" id="lightbox" onclick="fecharLightbox()">
@@ -984,9 +984,11 @@ const TEM_STORAGE_CLAUDE = (typeof window.storage !== 'undefined' && window.stor
 
 const infoArmazenamento = document.getElementById('drawer-storage-info');
 if(infoArmazenamento){
-  infoArmazenamento.textContent = TEM_STORAGE_CLAUDE
+  infoArmazenamento.innerHTML = (TEM_STORAGE_CLAUDE
     ? 'Dados salvos no armazenamento do Claude.'
-    : 'Dados salvos neste navegador (localStorage). Se limpar os dados do navegador, eles somem — faça backup com frequência.';
+    : 'Dados salvos neste navegador (localStorage), vinculados a este endereço:')
+    + (TEM_STORAGE_CLAUDE ? '' : `<br><b style="color:var(--text);word-break:break-all;">${location.origin}${location.pathname}</b>`)
+    + '<br><span id="status-persistente">Verificando armazenamento persistente…</span>';
 }
 
 async function storageGet(chave){
@@ -1022,6 +1024,25 @@ async function testarArmazenamento(){
     banner.classList.toggle('show', !funcionou);
   }catch(e){
     banner.classList.add('show');
+  }
+}
+
+// pede ao navegador pra tratar o armazenamento deste site como "persistente",
+// reduzindo a chance dele ser apagado automaticamente por falta de espaço
+async function pedirArmazenamentoPersistente(){
+  const statusEl = document.getElementById('status-persistente');
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      const jaEra = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+      const concedido = jaEra || await navigator.storage.persist();
+      if(statusEl) statusEl.textContent = concedido
+        ? 'Armazenamento persistente: ativo ✅'
+        : 'Armazenamento persistente: não concedido pelo navegador ⚠️';
+    }else if(statusEl){
+      statusEl.textContent = 'Este navegador não suporta armazenamento persistente.';
+    }
+  }catch(e){
+    if(statusEl) statusEl.textContent = 'Não foi possível verificar o armazenamento persistente.';
   }
 }
 
@@ -2574,6 +2595,7 @@ calcularPersonalizado();
 calcularJuros();
 renderMetaJuros();
 testarArmazenamento();
+pedirArmazenamentoPersistente();
 loadData();
 
 // registra o service worker (só funciona quando hospedado em http/https, não em file://)
