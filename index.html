@@ -960,7 +960,7 @@
     </div>
   </section>
 
-  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v9) — service worker corrigido para sempre buscar atualizações</footer>
+  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v10) — salvamento forçado ao minimizar/fechar o app</footer>
 </div>
 
 <div class="lightbox" id="lightbox" onclick="fecharLightbox()">
@@ -2617,6 +2617,25 @@ renderMetaJuros();
 testarArmazenamento();
 pedirArmazenamentoPersistente();
 loadData();
+
+// salva de forma imediata e síncrona assim que o app é minimizado, perde o foco
+// ou é fechado — evita perder o último registro se o Android encerrar o processo
+// antes do salvamento normal (assíncrono) terminar
+function salvamentoDeEmergencia(){
+  try{
+    localStorage.setItem('ledger-data', JSON.stringify(DATA));
+    const el = document.getElementById('ultimo-salvamento');
+    if(el){
+      el.textContent = 'Último salvamento confirmado: ' + new Date().toLocaleTimeString('pt-BR') + ' (ao sair)';
+      el.style.color = 'var(--win)';
+    }
+  }catch(e){ /* se falhar aqui não há mais nada a fazer */ }
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='hidden') salvamentoDeEmergencia();
+});
+window.addEventListener('pagehide', salvamentoDeEmergencia);
+window.addEventListener('blur', salvamentoDeEmergencia);
 
 // registra o service worker (só funciona quando hospedado em http/https, não em file://)
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
