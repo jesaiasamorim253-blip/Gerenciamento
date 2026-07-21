@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Ledger — Gerenciamento de Operações</title>
+<title>Gerê — Gerenciamento de Operações</title>
 
 <!-- PWA: permite instalar como app na tela inicial -->
 <link rel="manifest" href="./manifest.json">
@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Ledger">
+<meta name="apple-mobile-web-app-title" content="Gerê">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
 
@@ -387,7 +387,7 @@
       </button>
       <div class="brand-mark">$</div>
       <div>
-        <h1>Ledger</h1>
+        <h1>Gerê</h1>
         <p>Gerenciamento de operações — opções binárias</p>
       </div>
     </div>
@@ -401,7 +401,7 @@
   <aside class="drawer" id="drawer">
     <div class="drawer-header">
       <div class="brand-mark" style="margin-bottom:10px;">$</div>
-      <h2>Ledger</h2>
+      <h2>Gerê</h2>
       <p>Gerenciamento de operações</p>
     </div>
     <button class="drawer-item active" data-view="dashboard"><span class="ic">🏠</span> Dashboard</button>
@@ -960,7 +960,7 @@
     </div>
   </section>
 
-  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v7) — diagnóstico de salvamento detalhado</footer>
+  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v8) — nome do app alterado para Gerê</footer>
 </div>
 
 <div class="lightbox" id="lightbox" onclick="fecharLightbox()">
@@ -1183,7 +1183,7 @@ function processarArquivoBackup(input){
     try{
       const dados = JSON.parse(e.target.result);
       if(!dados || typeof dados!=='object' || !Array.isArray(dados.operacoes)){
-        alert('Este arquivo não parece ser um backup válido do Ledger.');
+        alert('Este arquivo não parece ser um backup válido do Gerê.');
         return;
       }
       const confirmar = confirm('Importar este backup vai substituir todos os dados atuais do app. Deseja continuar?');

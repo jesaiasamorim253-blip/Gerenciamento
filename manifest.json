@@ -1,6 +1,6 @@
 {
-  "name": "Ledger — Gerenciamento de Operações",
-  "short_name": "Ledger",
+  "name": "Gerê — Gerenciamento de Operações",
+  "short_name": "Gerê",
   "description": "Gerenciamento de operações de opções binárias — soros, 2x1, 3x1, personalizado, calendário e metas de juros compostos.",
   "start_url": "./index.html",
   "scope": "./",
