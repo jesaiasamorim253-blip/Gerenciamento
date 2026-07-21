@@ -960,7 +960,7 @@
     </div>
   </section>
 
-  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 18/07/2026 (v6) — armazenamento persistente + diagnóstico visível</footer>
+  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v7) — diagnóstico de salvamento detalhado</footer>
 </div>
 
 <div class="lightbox" id="lightbox" onclick="fecharLightbox()">
@@ -988,7 +988,9 @@ if(infoArmazenamento){
     ? 'Dados salvos no armazenamento do Claude.'
     : 'Dados salvos neste navegador (localStorage), vinculados a este endereço:')
     + (TEM_STORAGE_CLAUDE ? '' : `<br><b style="color:var(--text);word-break:break-all;">${location.origin}${location.pathname}</b>`)
-    + '<br><span id="status-persistente">Verificando armazenamento persistente…</span>';
+    + '<br><span id="status-persistente">Verificando armazenamento persistente…</span>'
+    + '<br><span id="ultimo-salvamento">Ainda não salvou nada nesta sessão.</span>'
+    + '<br><span id="dados-atuais-info"></span>';
 }
 
 async function storageGet(chave){
@@ -1047,11 +1049,19 @@ async function pedirArmazenamentoPersistente(){
 }
 
 async function loadData(){
+  let encontrouAlgo = false;
   try{
     const r = await storageGet('ledger-data');
-    if(r && r.value) DATA = JSON.parse(r.value);
+    if(r && r.value){ DATA = JSON.parse(r.value); encontrouAlgo = true; }
   }catch(e){ /* nada salvo ainda */ }
   aplicarDadosCarregados();
+  const infoEl = document.getElementById('dados-atuais-info');
+  if(infoEl){
+    infoEl.textContent = encontrouAlgo
+      ? `Ao abrir agora, foram encontrados: ${DATA.operacoes.length} operações, ${DATA.caixa.length} lançamentos salvos.`
+      : 'Ao abrir agora, NENHUM dado anterior foi encontrado neste navegador.';
+    infoEl.style.color = encontrouAlgo ? 'var(--muted)' : 'var(--loss)';
+  }
 }
 
 // aplica o conteúdo atual de DATA em toda a interface — usado no carregamento normal e após importar um backup
@@ -1098,10 +1108,20 @@ async function saveData(){
     const resultado = await storageSet('ledger-data', JSON.stringify(DATA));
     if(!resultado){
       mostrarAvisoSalvamento();
+    }else{
+      atualizarUltimoSalvamento();
     }
   }catch(e){
     console.error('Erro ao salvar', e);
     mostrarAvisoSalvamento();
+  }
+}
+function atualizarUltimoSalvamento(){
+  const el = document.getElementById('ultimo-salvamento');
+  if(el){
+    const agora = new Date();
+    el.textContent = 'Último salvamento confirmado: ' + agora.toLocaleTimeString('pt-BR');
+    el.style.color = 'var(--win)';
   }
 }
 let avisoSalvamentoMostrado = false;
