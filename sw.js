@@ -1,9 +1,10 @@
-// Service worker do Ledger — permite instalar como app e funcionar offline.
-// Estratégia simples: cache-first para os arquivos do app; a rede nunca é
-// necessária depois da primeira visita, já que todos os dados ficam salvos
-// no armazenamento local do navegador (localStorage), não neste cache.
+// Service worker do Gerê — permite instalar como app e funcionar offline.
+// Estratégia: SEMPRE busca a versão mais nova na rede primeiro (assim
+// qualquer atualização aparece na hora). Só usa a cópia salva em cache
+// quando o celular está sem internet. Os dados do app (operações, etc.)
+// não ficam aqui — ficam no localStorage, que este arquivo não mexe.
 
-const CACHE_NOME = 'ledger-cache-v1';
+const CACHE_NOME = 'gere-cache-v2';
 const ARQUIVOS_PARA_CACHE = [
   './',
   './index.html',
@@ -34,9 +35,14 @@ self.addEventListener('activate', (evento) => {
 
 self.addEventListener('fetch', (evento) => {
   evento.respondWith(
-    caches.match(evento.request).then((respostaCache) => {
-      if (respostaCache) return respostaCache;
-      return fetch(evento.request).catch(() => caches.match('./index.html'));
-    })
+    fetch(evento.request)
+      .then((respostaRede) => {
+        const copia = respostaRede.clone();
+        caches.open(CACHE_NOME).then((cache) => cache.put(evento.request, copia));
+        return respostaRede;
+      })
+      .catch(() => {
+        return caches.match(evento.request).then((respostaCache) => respostaCache || caches.match('./index.html'));
+      })
   );
 });
