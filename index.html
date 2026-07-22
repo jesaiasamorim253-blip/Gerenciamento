@@ -960,7 +960,7 @@
     </div>
   </section>
 
-  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v10) — salvamento forçado ao minimizar/fechar o app</footer>
+  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v11) — salvamento automático a cada 4s</footer>
 </div>
 
 <div class="lightbox" id="lightbox" onclick="fecharLightbox()">
@@ -2636,6 +2636,7 @@ document.addEventListener('visibilitychange', ()=>{
 });
 window.addEventListener('pagehide', salvamentoDeEmergencia);
 window.addEventListener('blur', salvamentoDeEmergencia);
+setInterval(salvamentoDeEmergencia, 4000); // reforço extra: salva sozinho a cada 4s enquanto o app estiver aberto
 
 // registra o service worker (só funciona quando hospedado em http/https, não em file://)
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
