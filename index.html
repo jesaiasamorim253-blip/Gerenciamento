@@ -2608,10 +2608,11 @@ tickClock();
 setInterval(tickClock, 1000);
 window.addEventListener('resize', drawChart);
 
-calcularCiclos();
-calcular2x1();
-calcular3x1();
-calcularPersonalizado();
+// OBS: calcularCiclos/calcular2x1/calcular3x1/calcularPersonalizado NÃO são mais chamadas aqui.
+// Elas salvam automaticamente (saveData) e, chamadas antes do loadData() terminar, sobrescreviam
+// os dados salvos com o DATA vazio inicial — causa do "sumiço" dos dados a cada refresh.
+// aplicarDadosCarregados() (chamada dentro de loadData) já cuida de desenhar essas calculadoras
+// com resetarSessaoTb=false, depois que os dados reais foram restaurados.
 calcularJuros();
 renderMetaJuros();
 testarArmazenamento();
