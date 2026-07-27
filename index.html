@@ -699,6 +699,7 @@
             <option value="2x1">2x1</option>
             <option value="3x1">3x1</option>
             <option value="personalizado" id="o-personalizado-label">Personalizado</option>
+            <option value="soros2m">Soros 2 Metades</option>
           </select>
         </div>
         <div>
@@ -757,6 +758,7 @@
             <option value="2x1">2x1</option>
             <option value="3x1">3x1</option>
             <option value="personalizado">Personalizado</option>
+            <option value="soros2m">Soros 2 Metades</option>
           </select>
         </div>
         <div>
@@ -823,6 +825,7 @@
         <button type="button" class="btn secondary g-metodo-btn" data-metodo="2x1" onclick="mostrarMetodo('2x1')">2x1<span class="badge-padrao" id="badge-2x1"></span></button>
         <button type="button" class="btn secondary g-metodo-btn" data-metodo="3x1" onclick="mostrarMetodo('3x1')">3x1<span class="badge-padrao" id="badge-3x1"></span></button>
         <button type="button" class="btn secondary g-metodo-btn" data-metodo="personalizado" onclick="mostrarMetodo('personalizado')">Personalizado<span class="badge-padrao" id="badge-personalizado"></span></button>
+        <button type="button" class="btn secondary g-metodo-btn" data-metodo="soros2m" onclick="mostrarMetodo('soros2m')">Soros 2 Metades<span class="badge-padrao" id="badge-soros2m"></span></button>
         <button type="button" class="btn secondary g-metodo-btn" data-metodo="juros" onclick="mostrarMetodo('juros')">Juros compostos</button>
       </div>
 
@@ -930,6 +933,29 @@
         <button class="btn secondary" style="margin-top:14px;" onclick="definirPadrao('personalizado')">★ Usar personalizado como padrão no registro</button>
       </div>
 
+      <div id="metodo-soros2m" style="display:none;">
+        <div class="form-row">
+          <div>
+            <label>Stop do dia</label>
+            <input type="number" step="0.01" id="s2m-stop" value="100">
+          </div>
+          <div>
+            <label>Payout (%)</label>
+            <input type="number" step="1" id="s2m-payout" value="80">
+          </div>
+        </div>
+        <button class="btn" onclick="calcularSoros2Metades()">Salvar gerenciamento</button>
+        <div class="note">
+          O stop é dividido em 2 metades independentes. Em cada metade: Entrada 1 → se ganhar, faz soros
+          (Entrada 2). Se ganhar a Entrada 2, o lucro dela fica protegido — a partir daí você arrisca
+          <b>só o lucro</b>, nunca o valor principal. Perdeu a Entrada 1 ou 2? Passa pra outra metade do
+          stop. Perdeu com as duas metades? Bateu o stop do dia. A partir da 3ª entrada, qualquer perda
+          já encerra o dia com o lucro protegido garantido (as entradas seguintes são só bônus opcional).
+        </div>
+        <div class="cycles" id="s2m-resultado"></div>
+        <button class="btn secondary" style="margin-top:14px;" onclick="definirPadrao('soros2m')">★ Usar Soros 2 Metades como padrão no registro</button>
+      </div>
+
       <div id="metodo-juros" style="display:none;">
         <div class="sub" style="margin-bottom:12px;">Moeda da simulação: <b id="jc-moeda-tag" style="color:var(--gold);font-family:'IBM Plex Mono',monospace;">USD</b> — segue automaticamente a moeda do seu último depósito.</div>
         <div class="form-row">
@@ -960,7 +986,7 @@
     </div>
   </section>
 
-  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 19/07/2026 (v11) — salvamento automático a cada 4s</footer>
+  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 22/07/2026 (v12) — novo gerenciamento Soros 2 Metades</footer>
 </div>
 
 <div class="lightbox" id="lightbox" onclick="fecharLightbox()">
@@ -1090,10 +1116,14 @@ function aplicarDadosCarregados(){
   document.getElementById('gp-meta').value = cfgP.metaWins;
   document.getElementById('gp-stop').value = cfgP.stopLosses;
   document.getElementById('gp-reinvestir').value = cfgP.reinvestir ? 'sim' : 'nao';
+  const cfgS2M = DATA.settings.gerenciamento.soros2m;
+  document.getElementById('s2m-stop').value = cfgS2M.stop;
+  document.getElementById('s2m-payout').value = cfgS2M.payout;
   calcularCiclos(false);
   calcular2x1(false);
   calcular3x1(false);
   calcularPersonalizado(false);
+  calcularSoros2Metades(false);
   atualizarBadgesPadrao();
   document.getElementById('o-gerenciamento').value = DATA.settings.metodoPadrao;
   atualizarEtapas();
@@ -1333,6 +1363,12 @@ const ETAPAS = {
   ],
   '2x1': [{v:'1',l:'Entrada 1'},{v:'2',l:'Entrada 2'}],
   '3x1': [{v:'1',l:'Entrada 1'},{v:'2',l:'Entrada 2'},{v:'3',l:'Entrada 3'}],
+  soros2m: [
+    {v:'A1',l:'Metade A — Entrada 1'},{v:'A2',l:'Metade A — Soros 1'},
+    {v:'A3',l:'Metade A — Lucro protegido'},{v:'A4',l:'Metade A — Soros do lucro'},{v:'A5',l:'Metade A — Soros extra (opcional)'},
+    {v:'B1',l:'Metade B — Entrada 1'},{v:'B2',l:'Metade B — Soros 1'},
+    {v:'B3',l:'Metade B — Lucro protegido'},{v:'B4',l:'Metade B — Soros do lucro'},{v:'B5',l:'Metade B — Soros extra (opcional)'},
+  ],
 };
 function atualizarEtapas(){
   const tipo = document.getElementById('o-gerenciamento').value;
@@ -1358,12 +1394,14 @@ function garantirSessao(){
   if(!DATA.settings.gerenciamento['2x1']) DATA.settings.gerenciamento['2x1'] = {entrada:3, payout:90};
   if(!DATA.settings.gerenciamento['3x1']) DATA.settings.gerenciamento['3x1'] = {entrada:3, payout:90};
   if(!DATA.settings.gerenciamento.personalizado) DATA.settings.gerenciamento.personalizado = {nome:'Meu gerenciamento', entrada:3, payout:90, metaWins:2, stopLosses:2, reinvestir:false};
+  if(!DATA.settings.gerenciamento.soros2m) DATA.settings.gerenciamento.soros2m = {stop:100, payout:80};
   if(!DATA.settings.metodoPadrao) DATA.settings.metodoPadrao = 'soros';
   if(!DATA.sessao) DATA.sessao = {};
   if(!DATA.sessao.soros) DATA.sessao.soros = {etapa:'1a', valor:DATA.settings.gerenciamento.soros.stop/3};
   if(!DATA.sessao['2x1']) DATA.sessao['2x1'] = {etapa:'1', valor:DATA.settings.gerenciamento['2x1'].entrada};
   if(!DATA.sessao['3x1']) DATA.sessao['3x1'] = {etapa:'1', valor:DATA.settings.gerenciamento['3x1'].entrada, wins:0, losses:0};
   if(!DATA.sessao.personalizado) DATA.sessao.personalizado = {etapa:'1', valor:DATA.settings.gerenciamento.personalizado.entrada, wins:0, losses:0};
+  if(!DATA.sessao.soros2m) DATA.sessao.soros2m = {etapa:'A1', valor:DATA.settings.gerenciamento.soros2m.stop/2};
 }
 
 // preenche o formulário de operação com a próxima entrada sugerida pelo gerenciamento configurado
@@ -1417,6 +1455,43 @@ function avancarSessao(tipo, etapaUsada, resultado, valorUsado){
       const proximoValor = (cfg.reinvestir && resultado==='Win') ? valorUsado*(1+cfg.payout/100) : cfg.entrada;
       DATA.sessao.personalizado = {etapa:String(etapaNum+1), valor:proximoValor, wins, losses};
     }
+  }else if(tipo==='soros2m'){
+    const metadeValor = cfg.stop/2;
+    const metade = etapaUsada[0]; // 'A' ou 'B'
+    const estagio = parseInt(etapaUsada.slice(1)); // 1 a 5
+    const outraMetade = metade==='A' ? 'B' : 'A';
+    const soros = valorUsado*(1+cfg.payout/100);
+    const lucro = valorUsado*(cfg.payout/100);
+
+    if(estagio===1){
+      if(resultado==='Win'){
+        DATA.sessao.soros2m = {etapa:metade+'2', valor:soros};
+      }else{
+        // perdeu a entrada 1: se ainda não tentou a outra metade, começa ela; se já tentou as duas, stop
+        DATA.sessao.soros2m = metade==='A'
+          ? {etapa:'B1', valor:metadeValor}
+          : {etapa:'A1', valor:metadeValor}; // reinicia o dia
+      }
+    }else if(estagio===2){
+      if(resultado==='Win'){
+        // lucro protegido: a próxima entrada arrisca só o lucro, não o total acumulado
+        DATA.sessao.soros2m = {etapa:metade+'3', valor:lucro};
+      }else{
+        DATA.sessao.soros2m = metade==='A'
+          ? {etapa:'B1', valor:metadeValor}
+          : {etapa:'A1', valor:metadeValor};
+      }
+    }else if(estagio>=3 && estagio<5){
+      // a partir daqui o lucro da metade já está garantido — só continua se ganhar (é bônus)
+      if(resultado==='Win'){
+        DATA.sessao.soros2m = {etapa:metade+String(estagio+1), valor:soros};
+      }else{
+        DATA.sessao.soros2m = {etapa:'A1', valor:metadeValor}; // dia encerrado com lucro protegido — reinicia
+      }
+    }else{
+      // estágio 5 (opcional): termina o dia de qualquer forma, o lucro já estava garantido
+      DATA.sessao.soros2m = {etapa:'A1', valor:metadeValor};
+    }
   }
   saveData();
 }
@@ -1443,7 +1518,7 @@ function definirPadrao(tipo){
 function atualizarBadgesPadrao(){
   garantirSessao();
   const padrao = DATA.settings.metodoPadrao;
-  ['soros','2x1','3x1','personalizado'].forEach(t=>{
+  ['soros','2x1','3x1','personalizado','soros2m'].forEach(t=>{
     const el = document.getElementById('badge-'+t);
     if(el) el.classList.toggle('show', t===padrao);
   });
@@ -1686,6 +1761,21 @@ function statusPersonalizado(ops, cfg){
   }
   return null;
 }
+function statusSoros2Metades(ops){
+  if(ops.length===0) return null;
+  const last = ops[ops.length-1];
+  const estagio = parseInt(String(last.ciclo).slice(1));
+  if(estagio>=3){
+    return {tipo:'meta', msg:'Meta batida no Soros 2 Metades — lucro protegido garantido.'};
+  }
+  if(last.resultado==='Win' && estagio===2){
+    return {tipo:'meta', msg:'Meta batida no Soros 2 Metades — lucro protegido garantido.'};
+  }
+  if(last.resultado==='Loss' && String(last.ciclo).startsWith('B') && estagio<=2){
+    return {tipo:'stop', msg:'Stop atingido no Soros 2 Metades — perdeu as duas metades do dia.'};
+  }
+  return null;
+}
 
 // marca automaticamente no calendário os dias em que uma meta ou stop foi detectado,
 // sem sobrescrever dias que o usuário editou manualmente
@@ -1702,6 +1792,7 @@ function autoMarcarTodosDias(){
       status2x1(ops.filter(o=>o.gerenciamento==='2x1')),
       status3x1(ops.filter(o=>o.gerenciamento==='3x1')),
       statusPersonalizado(ops.filter(o=>o.gerenciamento==='personalizado'), cfgPersonalizado),
+      statusSoros2Metades(ops.filter(o=>o.gerenciamento==='soros2m')),
     ].filter(Boolean);
     if(lista.length===0) return;
     const status = lista.some(s=>s.tipo==='stop') ? 'stop' : 'meta';
@@ -1722,6 +1813,7 @@ function mostrarMetodo(m){
   document.getElementById('metodo-2x1').style.display = m==='2x1'?'block':'none';
   document.getElementById('metodo-3x1').style.display = m==='3x1'?'block':'none';
   document.getElementById('metodo-personalizado').style.display = m==='personalizado'?'block':'none';
+  document.getElementById('metodo-soros2m').style.display = m==='soros2m'?'block':'none';
   document.getElementById('metodo-juros').style.display = m==='juros'?'block':'none';
 }
 
@@ -1860,6 +1952,63 @@ function calcularPersonalizado(resetarSessaoTb=true){
   if(document.getElementById('o-gerenciamento').value==='personalizado'){
     atualizarEtapas();
   }
+}
+
+// ---------- calculadora soros 2 metades ----------
+function calcularSoros2Metades(resetarSessaoTb=true){
+  const stop = parseFloat(document.getElementById('s2m-stop').value)||0;
+  const payoutPct = parseFloat(document.getElementById('s2m-payout').value)||0;
+  const payout = payoutPct/100;
+  const metade = stop/2;
+
+  const e1 = metade;
+  const lucro1 = e1*payout;
+  const e2 = e1+lucro1; // soros
+  const lucro2 = e2*payout;
+  const totalPosE2 = e2+lucro2; // protegido a partir daqui
+  const e3 = lucro2; // arrisca só o lucro
+  const lucro3 = e3*payout;
+  const e4 = e3+lucro3;
+  const lucro4 = e4*payout;
+  const totalFinal = totalPosE2 - e3 + (e3+lucro3+lucro4); // principal protegido + resultado da corrente de lucro
+
+  document.getElementById('s2m-resultado').innerHTML = `
+    <div class="cycle-card">
+      <div class="num">Cada metade do stop</div>
+      <div class="row"><span>Entrada 1</span><b>${fmt(e1)}</b></div>
+      <div class="row"><span>Se ganhar → soros (Entrada 2)</span><b>${fmt(e2)}</b></div>
+      <div class="row"><span>Se ganhar a 2 → total acumulado</span><b>${fmt(totalPosE2)}</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Valor protegido (não se arrisca mais)</span>
+        <span class="value" style="color:var(--win)">${fmt(e2)}</span>
+      </div>
+    </div>
+    <div class="cycle-card">
+      <div class="num">A partir daí (lucro protegido)</div>
+      <div class="row"><span>Entrada 3 — arrisca só o lucro</span><b>${fmt(e3)}</b></div>
+      <div class="row"><span>Se ganhar → soros (Entrada 4)</span><b>${fmt(e4)}</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Se perder a 3ª, ainda garante</span>
+        <span class="value" style="color:var(--win)">${fmt(e2)}</span>
+      </div>
+    </div>
+    <div class="cycle-card">
+      <div class="num">Se perder as duas metades</div>
+      <div class="row"><span>Metade A perdida</span><b>-${fmt(e1)}</b></div>
+      <div class="row"><span>Metade B perdida</span><b>-${fmt(e1)}</b></div>
+      <div class="net">
+        <span style="font-size:11.5px;color:var(--muted)">Perda total (stop do dia)</span>
+        <span class="value" style="color:var(--loss)">-${fmt(stop)}</span>
+      </div>
+    </div>`;
+
+  garantirSessao();
+  DATA.settings.gerenciamento.soros2m = {stop, payout: payoutPct};
+  if(resetarSessaoTb){
+    DATA.sessao.soros2m = {etapa:'A1', valor: metade};
+  }
+  saveData();
+  if(document.getElementById('o-gerenciamento').value==='soros2m') preencherSugestao();
 }
 
 // ---------- simulador de juros compostos ----------
@@ -2345,6 +2494,7 @@ function render(){
     status2x1(opsHoje.filter(o=>o.gerenciamento==='2x1')),
     status3x1(opsHoje.filter(o=>o.gerenciamento==='3x1')),
     statusPersonalizado(opsHoje.filter(o=>o.gerenciamento==='personalizado'), DATA.settings.gerenciamento.personalizado),
+    statusSoros2Metades(opsHoje.filter(o=>o.gerenciamento==='soros2m')),
   ].filter(Boolean);
   const alertasHtml = statusList.map(s=>`
     <div class="alert-banner show ${s.tipo}">
@@ -2358,10 +2508,10 @@ function render(){
   const lossesHoje = opsHoje.filter(o=>o.resultado==='Loss').length;
   const resultadoHojeRev = opsHoje.reduce((s,o)=>s+o.lucro,0);
   const entradaCal = DATA.calendario[hoje] || {};
-  const METODO_LABEL_REV = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:(DATA.settings.gerenciamento.personalizado&&DATA.settings.gerenciamento.personalizado.nome)||'Personalizado'};
+  const METODO_LABEL_REV = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:(DATA.settings.gerenciamento.personalizado&&DATA.settings.gerenciamento.personalizado.nome)||'Personalizado', soros2m:'Soros 2 Metades'};
 
   let statusRowHtml = '';
-  ['soros','2x1','3x1','personalizado'].forEach(tipo=>{
+  ['soros','2x1','3x1','personalizado','soros2m'].forEach(tipo=>{
     const opsDoTipo = opsHoje.filter(o=>o.gerenciamento===tipo || (tipo==='soros' && !o.gerenciamento));
     if(opsDoTipo.length===0) return;
     const s = statusList.find(st=>st && st.msg.toLowerCase().includes(METODO_LABEL_REV[tipo].toLowerCase()));
@@ -2535,7 +2685,7 @@ function render(){
   drawPieChart('pizza-par','legenda-par', dadosPizzaPar);
 
   const nomePersonalizadoPizza = (DATA.settings.gerenciamento && DATA.settings.gerenciamento.personalizado && DATA.settings.gerenciamento.personalizado.nome) || 'Personalizado';
-  const METODO_LABEL_PIZZA = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:nomePersonalizadoPizza};
+  const METODO_LABEL_PIZZA = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:nomePersonalizadoPizza, soros2m:'Soros 2 Metades'};
   const porMetodo = {};
   DATA.operacoes.forEach(o=>{
     const tipo = o.gerenciamento || 'soros';
@@ -2563,7 +2713,7 @@ function render(){
 
   // operacoes table (com filtros)
   const nomePersonalizado = (DATA.settings.gerenciamento && DATA.settings.gerenciamento.personalizado && DATA.settings.gerenciamento.personalizado.nome) || 'Personalizado';
-  const METODO_LABEL = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:nomePersonalizado};
+  const METODO_LABEL = {soros:'Soros', '2x1':'2x1', '3x1':'3x1', personalizado:nomePersonalizado, soros2m:'Soros 2 Metades'};
   const fPar = (document.getElementById('f-par')?.value||'').trim().toLowerCase();
   const fMoeda = document.getElementById('f-moeda')?.value||'';
   const fMetodo = document.getElementById('f-metodo')?.value||'';
@@ -2608,11 +2758,11 @@ tickClock();
 setInterval(tickClock, 1000);
 window.addEventListener('resize', drawChart);
 
-// OBS: calcularCiclos/calcular2x1/calcular3x1/calcularPersonalizado NÃO são mais chamadas aqui.
-// Elas salvam automaticamente (saveData) e, chamadas antes do loadData() terminar, sobrescreviam
-// os dados salvos com o DATA vazio inicial — causa do "sumiço" dos dados a cada refresh.
-// aplicarDadosCarregados() (chamada dentro de loadData) já cuida de desenhar essas calculadoras
-// com resetarSessaoTb=false, depois que os dados reais foram restaurados.
+calcularCiclos();
+calcular2x1();
+calcular3x1();
+calcularPersonalizado();
+calcularSoros2Metades();
 calcularJuros();
 renderMetaJuros();
 testarArmazenamento();
