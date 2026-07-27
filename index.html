@@ -986,7 +986,7 @@
     </div>
   </section>
 
-  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 22/07/2026 (v12) — novo gerenciamento Soros 2 Metades</footer>
+  <footer>Dados salvos neste dispositivo/navegador.<br>Versão: 22/07/2026 (v13) — corrigido bug que sobrescrevia dados salvos ao abrir/atualizar</footer>
 </div>
 
 <div class="lightbox" id="lightbox" onclick="fecharLightbox()">
@@ -2758,11 +2758,12 @@ tickClock();
 setInterval(tickClock, 1000);
 window.addEventListener('resize', drawChart);
 
-calcularCiclos();
-calcular2x1();
-calcular3x1();
-calcularPersonalizado();
-calcularSoros2Metades();
+// IMPORTANTE: calcularCiclos(), calcular2x1(), calcular3x1(), calcularPersonalizado() e
+// calcularSoros2Metades() NÃO são chamadas aqui — elas chamam saveData() internamente, e
+// nesse momento DATA ainda é o objeto vazio padrão (loadData() ainda não rodou). Chamá-las
+// aqui sobrescreveria os dados salvos com um objeto vazio a cada abertura/atualização da
+// página. Elas já são chamadas com segurança (resetarSessaoTb=false) dentro de
+// aplicarDadosCarregados(), depois que loadData() termina de ler os dados reais.
 calcularJuros();
 renderMetaJuros();
 testarArmazenamento();
